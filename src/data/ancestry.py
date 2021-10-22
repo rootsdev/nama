@@ -2,11 +2,11 @@ import pandas as pd
 import numpy as np
 from typing import List, Tuple
 
-from data.dataset import train_test_split
+from data import dataset
 from src.models import utils
 
 
-def ancestry_train_test_split(dataset_path: str, train_path: str, test_path: str, test_size: float = 0.1):
+def train_test_split(dataset_path: str, train_path: str, test_path: str, test_size: float = 0.1):
     """
     Split test and train data in DATASET_NAME and save DATASET_NAME_train and DATASET_NAME_test to disk
     """
@@ -20,14 +20,14 @@ def ancestry_train_test_split(dataset_path: str, train_path: str, test_path: str
     df.dropna(inplace=True)
 
     # Split train test
-    df_train, df_test = train_test_split(df, "name2", test_size=test_size)
+    df_train, df_test = dataset.train_test_split(df, "name2", test_size=test_size)
 
     # Persist splits on disk
     df_train.to_csv(train_path)
     df_test.to_csv(test_path)
 
 
-def load_ancestry_train_test(
+def load_train_test(
     train_path: str, test_path: str
 ) -> (
     (List[str], List[List[Tuple[str, float, int]]], np.array),
@@ -38,8 +38,8 @@ def load_ancestry_train_test(
     """
     df_train = pd.read_csv(train_path)
     df_test = pd.read_csv(test_path)
-    input_names_train, weighted_actual_names_train, all_candidates_train = process_ancestry(df_train)
-    input_names_test, weighted_actual_names_test, all_candidates_test = process_ancestry(df_test)
+    input_names_train, weighted_actual_names_train, all_candidates_train = process(df_train)
+    input_names_test, weighted_actual_names_test, all_candidates_test = process(df_test)
 
     return (input_names_train, weighted_actual_names_train, all_candidates_train), (
         input_names_test,
@@ -48,7 +48,7 @@ def load_ancestry_train_test(
     )
 
 
-def process_ancestry(df: pd.DataFrame) -> (List[str], List[List[Tuple[str, float, int]]], np.array):
+def process(df: pd.DataFrame) -> (List[str], List[List[Tuple[str, float, int]]], np.array):
     """
     Given a dataframe, return
     a list of input names (distinct name1),
