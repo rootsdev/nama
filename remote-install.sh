@@ -10,7 +10,7 @@ then
 fi
 
 echo "Copying files to nama directory"
-rsync -a -e "ssh -l ubuntu" --exclude=data --exclude=data-raw --exclude=.git --exclude=src.egg-info . $IP:nama
+rsync -a -e "ssh -l ubuntu" --exclude=/data --exclude=/data-raw --exclude=/.git --exclude=/src.egg-info . $IP:nama
 
 echo "Installing requirements into nama conda environment and copying data dir from s3"
 ssh ubuntu@$IP <<ENDSSH

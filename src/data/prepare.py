@@ -24,9 +24,7 @@ def merge_surname_prefixes(name_pieces: List[str]) -> List[str]:
 
 def remove_noise_words(name_pieces: List[str]) -> List[str]:
     name_pieces = [piece for piece in name_pieces if piece not in noise_words and len(piece) > 1]
-    name_pieces = [
-        piece for piece in name_pieces if piece not in poss_noise_words or len(name_pieces) == 1
-    ]
+    name_pieces = [piece for piece in name_pieces if piece not in poss_noise_words or len(name_pieces) == 1]
     return name_pieces
 
 

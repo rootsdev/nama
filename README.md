@@ -8,18 +8,20 @@ Using deep learning to find similar personal names
     conda activate nama
     make requirements
     make sync_data_from_s3
-    nbstripout --install    # automatically strip notebook output before commit
+    nbstripout --install   # automatically strip notebook output before commit
+    pytest                 # run tests
 
 ## Using Fastec2
 * Instructions: https://www.fast.ai/2019/02/15/fastec2/
 * pip install git+https://github.com/fastai/fastec2.git
-* fe2 launch <name> base 80 r5.2xlarge  # 80Gb disk, 64Gb memory
-* ./remote-install.sh <ip>
-* fe2 connect <name> 8888
+* fe2 launch < name > base 80 r5.2xlarge  # 80Gb disk, 64Gb memory
+* ./remote-install.sh < ip >
+* fe2 connect < name > 8888
+  * cd nama
   * conda activate nama
   * jupyter notebook
-* fe2 stop <name>  # stopped instances can be re-started with fe2 start <name>
-* fe2 terminate <name> # releases instance name and associated disk
+* fe2 stop < name >       # stopped instances can be re-started with fe2 start < name >
+* fe2 terminate < name >  # releases instance name and associated disk
 
 ## Data locations
 * raw data can be found at s3://familysearch-names/raw 
