@@ -77,7 +77,7 @@ surname_prefixes = {
     "van",
     "vande",
     "vanden",
-    "vander" "vander",
+    "vander",
     "vda",
     "ver",
     "viuda",
