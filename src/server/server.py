@@ -67,4 +67,5 @@ def standard(given_surname: str, name: str):
     standards = df[df["name"] == name]["id"].to_list()
     if len(standards) == 0:
         standards = [get_closest_id(name, df)]
+    standards = [std.upper() for std in standards]
     return {"standard": standards}
