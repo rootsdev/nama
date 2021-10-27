@@ -14,6 +14,7 @@ Using deep learning to find similar personal names
 ## Using Fastec2
 * Instructions: https://www.fast.ai/2019/02/15/fastec2/
 * pip install git+https://github.com/fastai/fastec2.git
+* ssh-add default.pem
 * fe2 launch < name > base 80 r5.2xlarge  # 80Gb disk, 64Gb memory
 * ./remote-install.sh < ip >
 * fe2 connect < name > 8888
