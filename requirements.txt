@@ -20,11 +20,13 @@ editdistance~=0.6.0
 fastapi~=0.70.0
 jellyfish~=0.8.8
 matplotlib~=3.4.3
+mpire~=2.3.0
 numpy~=1.21.2
 pandarallel~=1.5.3
 pandas~=1.3.3
 pathlib~=1.0.1
 pyarrow~=5.0.0
+pydantic~=1.8.2
 s3fs==0.4.2
 scikit-learn~=1.0
 scipy~=1.7.1

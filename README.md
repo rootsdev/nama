@@ -1,5 +1,4 @@
-nama
-==============================
+# nama
 
 Using deep learning to find similar personal names
 
@@ -8,10 +7,17 @@ Using deep learning to find similar personal names
     conda activate nama
     make requirements
     make sync_data_from_s3
+
+### If you want to develop, also do the following
     nbstripout --install   # automatically strip notebook output before commit
     pytest                 # run tests
 
-## Using Fastec2
+## Using nama
+### Starting the server and online server documentation 
+    uvicorn src.server.server:app --reload
+    http://localhost:8000/docs
+
+### Using Fastec2 for managing remote jupyter notebooks
 * Instructions: https://www.fast.ai/2019/02/15/fastec2/
 * pip install git+https://github.com/fastai/fastec2.git
 * ssh-add default.pem
@@ -24,13 +30,14 @@ Using deep learning to find similar personal names
 * fe2 stop < name >       # stopped instances can be re-started with fe2 start < name >
 * fe2 terminate < name >  # releases instance name and associated disk
 
-## Data locations
+## Data
+### locations
 * raw data can be found at s3://familysearch-names/raw 
 * large interim data files can be found at s3://familysearch-names/interim
 * data files in /data can be downloaded from s3://nama-data using `make sync_data_from_s3`
 * new data files in /data can be uploaded to s3://nama-data using `make sync_data_to_s3`
 
-## Data description
+### descriptions
 * tree_hr_given-similar.csv + tree-hr-surname-similar.csv - likely-similar name pairs
   * name - preferred name in the tree
   *	alt_name - name in the record (pairs are omitted when alt_name is the same as name)
@@ -44,8 +51,7 @@ Using deep learning to find similar personal names
   *	similarity - 1.0 - (levenshtein distance between the name and alt_name / max(len(name), len)alt_name)))
 
 
-Project Organization
-------------
+## Project Organization
 
     ├── LICENSE
     ├── Makefile           <- Makefile with commands like `make data` or `make train`
