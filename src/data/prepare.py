@@ -1,6 +1,8 @@
 from typing import List, Dict, Tuple
 import numpy as np
 from editdistance import distance
+import re
+from unidecode import unidecode
 
 from src.data.constants import surname_prefixes, noise_words, poss_noise_words
 
@@ -26,6 +28,27 @@ def remove_noise_words(name_pieces: List[str]) -> List[str]:
     name_pieces = [piece for piece in name_pieces if piece not in noise_words and len(piece) > 1]
     name_pieces = [piece for piece in name_pieces if piece not in poss_noise_words or len(name_pieces) == 1]
     return name_pieces
+
+
+def normalize(name: str, is_surname: bool) -> List[str]:
+    # remove diacritics
+    name = unidecode(name)
+    # lowercase
+    name = name.lower()
+    # replace various forms of apostrophe with empty string
+    name = re.sub("[`'´‘’]", "", name)
+    # replace all other non-alpha characters with space
+    name = re.sub("[^ a-z]", " ", name)
+    # replace multiple spaces with a single space and trim
+    name = re.sub(" +", " ", name).strip()
+    # split into pieces
+    pieces = name.split(" ")
+    # merge surname prefixes
+    pieces = merge_surname_prefixes(pieces)
+    # remove noise words
+    pieces = remove_noise_words(pieces)
+    # return pieces
+    return pieces
 
 
 def levenshtein_similarity(name: str, alt_name: str) -> float:
