@@ -11,6 +11,8 @@ test_merge_surname_prefixes_data = [
     {"input": ["mendoza", "de", "la", "gutierres"], "result": ["mendoza", "delagutierres"]},
     {"input": ["della", "mendoza", "gutierres"], "result": ["dellamendoza", "gutierres"]},
     {"input": ["mendoza", "gutierres", "de", "la"], "result": ["mendoza", "gutierres", "dela"]},
+    {"input": ["van", "der", "leek"], "result": ["vanderleek"]},
+    {"input": ["vander", "leek"], "result": ["vanderleek"]},
 ]
 
 
