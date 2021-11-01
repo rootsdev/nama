@@ -9,3 +9,10 @@ def glob(path):
         return ["s3://" + filename for filename in fs.glob(path)]
     else:
         return glob.glob(path)
+
+
+def fopen(path, mode, encoding):
+    if path.startswith("s3://"):
+        return fs.open(path, mode=mode, encoding=encoding)
+    else:
+        return open(path, mode=mode, encoding=encoding)

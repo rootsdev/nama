@@ -4,14 +4,20 @@ from editdistance import distance
 import re
 from unidecode import unidecode
 
-from src.data.constants import surname_prefixes, noise_words, poss_noise_words
+from src.data.constants import (
+    beginning_surname_prefixes,
+    surname_prefixes,
+    noise_words,
+    poss_noise_words,
+    poss_surname_noise_words,
+)
 
 
 def merge_surname_prefixes(name_pieces: List[str]) -> List[str]:
     prefixes = []
     pieces = []
-    for piece in name_pieces:
-        if piece in surname_prefixes:
+    for ix, piece in enumerate(name_pieces):
+        if (ix == 0 and piece in beginning_surname_prefixes) or (piece in surname_prefixes):
             prefixes.append(piece)
         else:
             if len(prefixes) > 0:
@@ -24,29 +30,48 @@ def merge_surname_prefixes(name_pieces: List[str]) -> List[str]:
     return pieces
 
 
-def remove_noise_words(name_pieces: List[str]) -> List[str]:
-    name_pieces = [piece for piece in name_pieces if piece not in noise_words and len(piece) > 1]
-    name_pieces = [piece for piece in name_pieces if piece not in poss_noise_words or len(name_pieces) == 1]
+def remove_noise_words(name_pieces: List[str], is_surname: bool) -> List[str]:
+    name_pieces = [piece for piece in name_pieces if piece not in noise_words]
+    # keep the last possible noise word if its the only word left
+    if len(name_pieces) > 1:
+        result = [
+            piece
+            for piece in name_pieces
+            if piece not in poss_noise_words and not (is_surname and piece in poss_surname_noise_words)
+        ]
+        name_pieces = result if len(result) > 0 else [name_pieces[-1]]
+
     return name_pieces
 
 
-def normalize(name: str, is_surname: bool) -> List[str]:
+def normalize(name: str, is_surname: bool, preserve_wildcards: bool = False) -> List[str]:
     # remove diacritics
-    name = unidecode(name)
+    normalized = unidecode(name)
     # lowercase
-    name = name.lower()
+    normalized = normalized.lower()
+    # remove possessive
+    normalized = re.sub("'s$", "", normalized)
     # replace various forms of apostrophe with empty string
-    name = re.sub("[`'´‘’]", "", name)
-    # replace all other non-alpha characters with space
-    name = re.sub("[^ a-z]", " ", name)
+    normalized = re.sub("[`'´‘’]", "", normalized)
+    # replace all other non-alphanumeric characters with space
+    regex = "[^ a-z0-9*?]" if preserve_wildcards else "[^ a-z0-9]"
+    normalized = re.sub(regex, " ", normalized)
     # replace multiple spaces with a single space and trim
-    name = re.sub(" +", " ", name).strip()
+    normalized = re.sub(" +", " ", normalized).strip()
     # split into pieces
-    pieces = name.split(" ")
+    pieces = normalized.split(" ")
     # merge surname prefixes
-    pieces = merge_surname_prefixes(pieces)
+    if is_surname:
+        pieces = merge_surname_prefixes(pieces)
     # remove noise words
-    pieces = remove_noise_words(pieces)
+    pieces = remove_noise_words(pieces, is_surname)
+    # remove numbers (kept until now so we could remove 1st as a noise word instead of having st as a prefix)
+    pieces = [re.sub("[0-9]", "", piece) for piece in pieces]
+    # remove empty names and single-character surnames
+    pieces = [piece for piece in pieces if piece and (len(piece) > 1 or not is_surname)]
+    # if no pieces, return the normalized name (or the original name if normalized is empty) with spaces removed
+    if len(pieces) == 0:
+        return [re.sub("\\s", "", normalized if normalized else name)]
     # return pieces
     return pieces
 

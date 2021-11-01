@@ -5,6 +5,11 @@ END_TOKEN = ">"
 ALPHABET = string.ascii_lowercase + BEGIN_TOKEN + END_TOKEN
 VOCAB_SIZE = len(ALPHABET)
 
+beginning_surname_prefixes = {
+    "e",
+    "o",
+}
+
 surname_prefixes = {
     "a",
     "ab",
@@ -59,7 +64,6 @@ surname_prefixes = {
     "me",
     "n",
     "nic",
-    "o",
     "saint",
     "sainte",
     "san",
@@ -89,6 +93,15 @@ surname_prefixes = {
 }
 
 noise_words = {
+    "1st",
+    "2nd",
+    "3rd",
+    "4th",
+    "5th",
+    "6th",
+    "7th",
+    "8th",
+    "9th",
     "and",
     "baby",
     "baron",
@@ -148,7 +161,6 @@ noise_words = {
     "spouse",
     "spouses",
     "sr",
-    "st",
     "stillborn",
     "surname",
     "tbd",
@@ -169,4 +181,19 @@ noise_words = {
     "y",
 }
 
-poss_noise_words = {"blank", "chief", "duke", "junior", "king", "major", "no", "prince", "queen", "senior"}
+poss_noise_words = {
+    "blank",
+    "chief",
+    "duke",
+    "junior",
+    "king",
+    "major",
+    "no",
+    "pastor",
+    "prince",
+    "queen",
+    "senior",
+    "sir",
+}
+
+poss_surname_noise_words = {"ui"}

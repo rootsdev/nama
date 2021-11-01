@@ -7,9 +7,9 @@ from src.models import utils
 
 def train_test_split(dataset_path: str, train_path: str, test_path: str, test_size: float = 0.1):
     """
-    Split test and train data in DATASET_NAME and save DATASET_NAME_train and DATASET_NAME_test to disk
+    Split test and train data in dataset_path and save train_path and test_path to disk
     """
-    df = pd.read_csv(dataset_path, sep="\t", header=True)
+    df = pd.read_csv(dataset_path, sep=",", header=0)
     # name = tree name
     # alt_name = record name
     # frequency = number of times name1 -> name2
@@ -56,7 +56,7 @@ def process(df: pd.DataFrame) -> (List[str], List[List[Tuple[str, float, int]]],
     # TODO remove co_occurrence count if we don't use it
     # Add padding
     df.loc[:, "name"] = df.loc[:, "name"].map(utils.add_padding)
-    df.loc[:, "alt_name"] = df.loc[:, "name"].map(utils.add_padding)
+    df.loc[:, "alt_name"] = df.loc[:, "alt_name"].map(utils.add_padding)
     df_name_matches = df.groupby("name").agg(list).reset_index()
     weighted_actual_names = [
         [(n, w, c) for n, w, c in zip(ns, ws, cs)]

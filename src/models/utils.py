@@ -191,7 +191,7 @@ def convert_names_to_model_inputs(
 ) -> (torch.Tensor, torch.Tensor):
     """
     Return a torch tensor of names, where each name has been converted to a sequence of ids and the ids have been one-hot encoded.
-    Also return the tensor where the names of ahve converted to a sequence of ids but before the ids have been one-hot encoded.
+    Also return the tensor where the names have been converted to a sequence of ids but before the ids have been one-hot encoded.
     :param names: list of names to encode
     :param char_to_idx_map: map characters to ids
     :param max_name_length: maximum name length

@@ -77,6 +77,7 @@ def vector(given_surname: GivenSurname, name: str):
 
 @app.get("/standard/{given_surname}/{name}", response_model=StandardResponse)
 def standard(given_surname: GivenSurname, name: str):
+    # TODO standardize patronymics and remove from fs-nama
     df = clusters_df[given_surname]
     standards = df[df["name"] == name]["id"].to_list()
     if len(standards) == 0:
