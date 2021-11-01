@@ -4,6 +4,7 @@ from src.data.prepare import (
     remove_noise_words,
     match_name_pairs,
     levenshtein_similarity,
+    standardize_patronymics,
 )
 
 
@@ -82,6 +83,21 @@ test_remove_noise_words_data = [
 def test_remove_noise_words():
     for test_data in test_remove_noise_words_data:
         result = remove_noise_words(test_data["input"], test_data["is_surname"])
+        assert result == test_data["result"], f"unexpected result {result} for {test_data['input']}"
+
+
+test_standardize_patronymics_data = [
+    {"input": "hansdr", "result": "hanson"},
+    {"input": "petrokovna", "result": "petrokovich"},
+    {"input": "radovichna", "result": "radovich"},
+    {"input": "radovinichna", "result": "radovich"},
+    {"input": "chesworth", "result": "chesworth"},
+]
+
+
+def test_standardiza_patronymics():
+    for test_data in test_standardize_patronymics_data:
+        result = standardize_patronymics(test_data["input"])
         assert result == test_data["result"], f"unexpected result {result} for {test_data['input']}"
 
 

@@ -5,11 +5,12 @@ import re
 from unidecode import unidecode
 
 from src.data.constants import (
-    beginning_surname_prefixes,
-    surname_prefixes,
-    noise_words,
-    poss_noise_words,
-    poss_surname_noise_words,
+    BEGINNING_SURNAME_PREFIXES,
+    SURNAME_PREFIXES,
+    NOISE_WORDS,
+    POSS_NOISE_WORDS,
+    POSS_SURNAME_NOISE_WORDS,
+    PATRONYMIC_PATTERNS,
 )
 
 
@@ -17,7 +18,7 @@ def merge_surname_prefixes(name_pieces: List[str]) -> List[str]:
     prefixes = []
     pieces = []
     for ix, piece in enumerate(name_pieces):
-        if (ix == 0 and piece in beginning_surname_prefixes) or (piece in surname_prefixes):
+        if (ix == 0 and piece in BEGINNING_SURNAME_PREFIXES) or (piece in SURNAME_PREFIXES):
             prefixes.append(piece)
         else:
             if len(prefixes) > 0:
@@ -31,17 +32,23 @@ def merge_surname_prefixes(name_pieces: List[str]) -> List[str]:
 
 
 def remove_noise_words(name_pieces: List[str], is_surname: bool) -> List[str]:
-    name_pieces = [piece for piece in name_pieces if piece not in noise_words]
+    name_pieces = [piece for piece in name_pieces if piece not in NOISE_WORDS]
     # keep the last possible noise word if its the only word left
     if len(name_pieces) > 1:
         result = [
             piece
             for piece in name_pieces
-            if piece not in poss_noise_words and not (is_surname and piece in poss_surname_noise_words)
+            if piece not in POSS_NOISE_WORDS and not (is_surname and piece in POSS_SURNAME_NOISE_WORDS)
         ]
         name_pieces = result if len(result) > 0 else [name_pieces[-1]]
 
     return name_pieces
+
+
+def standardize_patronymics(name: str) -> str:
+    for patronymic_pattern in PATRONYMIC_PATTERNS:
+        name = patronymic_pattern["pattern"].sub(patronymic_pattern["replacement"], name)
+    return name
 
 
 def normalize(name: str, is_surname: bool, preserve_wildcards: bool = False) -> List[str]:
@@ -71,7 +78,10 @@ def normalize(name: str, is_surname: bool, preserve_wildcards: bool = False) -> 
     pieces = [piece for piece in pieces if piece and (len(piece) > 1 or not is_surname)]
     # if no pieces, return the normalized name (or the original name if normalized is empty) with spaces removed
     if len(pieces) == 0:
-        return [re.sub("\\s", "", normalized if normalized else name)]
+        pieces = [re.sub("\\s", "", normalized if normalized else name)]
+    # standardize patronymics
+    if is_surname:
+        pieces = [standardize_patronymics(piece) for piece in pieces]
     # return pieces
     return pieces
 

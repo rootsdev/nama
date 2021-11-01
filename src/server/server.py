@@ -7,6 +7,7 @@ from pydantic import BaseModel
 import torch
 from typing import List
 
+from src.data.prepare import standardize_patronymics
 from src.models import utils
 
 # run using uvicorn src.server.server:app --reload
@@ -68,6 +69,11 @@ app = FastAPI()
 
 @app.get("/vector/{given_surname}/{name}", response_model=VectorResponse)
 def vector(given_surname: GivenSurname, name: str):
+    """
+    Name must be normalized, but this function standardizes patronymics
+    """
+    if given_surname == GivenSurname.surname:
+        name = standardize_patronymics(name)
     # convert name to a tensor
     names_tensor, _ = utils.convert_names_to_model_inputs([name], char_to_idx_map, MAX_NAME_LENGTH)
     # Get Embeddings for the names from the encoder
@@ -77,7 +83,11 @@ def vector(given_surname: GivenSurname, name: str):
 
 @app.get("/standard/{given_surname}/{name}", response_model=StandardResponse)
 def standard(given_surname: GivenSurname, name: str):
-    # TODO standardize patronymics and remove from fs-nama
+    """
+    Name must be normalized, but this function standardizes patronymics
+    """
+    if given_surname == GivenSurname.surname:
+        name = standardize_patronymics(name)
     df = clusters_df[given_surname]
     standards = df[df["name"] == name]["id"].to_list()
     if len(standards) == 0:
