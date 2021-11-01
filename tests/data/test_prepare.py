@@ -14,7 +14,7 @@ test_normalize_data = [
     {"input": "j0hn", "is_surname": False, "result": ["jhn"]},
     {"input": "a'lo`ha", "is_surname": False, "result": ["aloha"]},
     {"input": "ui li", "is_surname": False, "result": ["ui", "li"]},
-    {"input": "ui li", "is_surname": True, "result": ["li"]},
+    {"input": "ui li", "is_surname": True, "result": ["uili"]},
     {"input": "ui", "is_surname": True, "result": ["ui"]},
     {"input": "John Paul", "is_surname": False, "result": ["john", "paul"]},
     {"input": "John-Paul", "is_surname": False, "result": ["john", "paul"]},
@@ -41,6 +41,11 @@ test_normalize_data = [
     {"input": "J", "is_surname": False, "result": ["j"]},
     {"input": "0 1 2 3", "is_surname": False, "result": ["0123"]},
     {"input": "0 1 2 3John@", "is_surname": False, "result": ["john"]},
+    {"input": "van der leek", "is_surname": True, "result": ["vanderleek"]},
+    {"input": "vander leek", "is_surname": True, "result": ["vanderleek"]},
+    {"input": "van derleek", "is_surname": True, "result": ["vanderleek"]},
+    {"input": "vanderleek", "is_surname": True, "result": ["vanderleek"]},
+    {"input": "van der leek horn", "is_surname": True, "result": ["vanderleek", "horn"]},
     {"input": "Jo?n* Sm?th", "is_surname": False, "preserve_wildcards": True, "result": ["jo?n*", "sm?th"]},
 ]
 
