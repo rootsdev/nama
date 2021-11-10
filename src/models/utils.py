@@ -2,13 +2,37 @@ from typing import Dict, List, Union, Set
 
 import heapq
 import jellyfish
-import pandas as pd
+from mpire import WorkerPool
 import numpy as np
+import pandas as pd
 import torch
 import unidecode
 from sklearn.utils.extmath import safe_sparse_dot
 from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
 from src.data import constants
+
+
+def _get_candidate_scores(shared, rows, _):
+    source_names, source_names_X, num_candidates, metric, normalized = shared
+    sorted_scores_idx = None
+
+    if metric == "cosine":
+        if normalized:  # If vectors are normalized dot product and cosine similarity are the same
+            scores = safe_sparse_dot(rows, source_names_X.T)
+        else:
+            scores = cosine_similarity(rows, source_names_X)
+    elif metric == "euclidean":
+        scores = euclidean_distances(rows, source_names_X)
+        sorted_scores_idx = np.argsort(scores, axis=1)[:, :num_candidates]
+    else:
+        raise ValueError("Unrecognized metric type. Valid options: 'cosine', 'euclidean'")
+
+    if sorted_scores_idx is None:
+        sorted_scores_idx = np.flip(np.argsort(scores, axis=1), axis=1)[:, :num_candidates]
+
+    sorted_scores = np.take_along_axis(scores, sorted_scores_idx, axis=1)
+    ranked_candidates = source_names[sorted_scores_idx]
+    return np.dstack((ranked_candidates, sorted_scores))
 
 
 def get_best_matches(
@@ -30,33 +54,17 @@ def get_best_matches(
     :param num_candidates: Number of candidates to retrieve per name
     :param metric: Type of metric to use for fetching candidates
     :param normalized: Set it to true if X_input_names and X_source_names are L2 normalized
-    :return: candidate_names_scores: an nd.array of shape (number of input names, num_candidates, Z)
+    :return: candidate_names_scores: an nd.array of shape (number of input names, num_candidates, 2)
             (Z=0 has names, Z=1 has scores)
     """
     step_size = 1000
-    candidate_names_scores = []
+    chunks = []
     for ix in range(0, input_names_X.shape[0], step_size):
-        rows = input_names_X[ix : ix + step_size]
-        sorted_scores_idx = None
-
-        if metric == "cosine":
-            if normalized:  # If vectors are normalized dot product and cosine similarity are the same
-                scores = safe_sparse_dot(rows, source_names_X.T)
-            else:
-                scores = cosine_similarity(rows, source_names_X)
-        elif metric == "euclidean":
-            scores = euclidean_distances(rows, source_names_X)
-            sorted_scores_idx = np.argsort(scores, axis=1)[:, :num_candidates]
-        else:
-            raise ValueError("Unrecognized metric type. Valid options: 'cosine', 'euclidean'")
-
-        if sorted_scores_idx is None:
-            sorted_scores_idx = np.flip(np.argsort(scores, axis=1), axis=1)[:, :num_candidates]
-
-        sorted_scores = np.take_along_axis(scores, sorted_scores_idx, axis=1)
-        ranked_candidates = source_names[sorted_scores_idx]
-        candidate_names_scores.append(np.dstack((ranked_candidates, sorted_scores)))
-    return np.vstack(candidate_names_scores)
+        # chunks needs to be a list of tuples; otherwise mpire passes each row in the chunk as a separate parameter
+        chunks.append((input_names_X[ix : ix + step_size], ix))
+    with WorkerPool(shared_objects=(source_names, source_names_X, num_candidates, metric, normalized)) as pool:
+        candidate_names_scores = pool.map(_get_candidate_scores, chunks, progress_bar=True)
+    return candidate_names_scores
 
 
 def get_euclidean_distance(names_sample: np.ndarray, names_encoded: np.ndarray, name1: str, name2: str) -> float:

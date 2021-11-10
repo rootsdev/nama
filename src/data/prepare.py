@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Set
 import numpy as np
 from editdistance import distance
 import re
@@ -7,6 +7,9 @@ from unidecode import unidecode
 from src.data.constants import (
     BEGINNING_SURNAME_PREFIXES,
     SURNAME_PREFIXES,
+    BEGINNING_GIVEN_PREFIXES,
+    GIVEN_PREFIXES,
+    GIVEN_ABBREVS,
     NOISE_WORDS,
     POSS_NOISE_WORDS,
     POSS_SURNAME_NOISE_WORDS,
@@ -15,10 +18,18 @@ from src.data.constants import (
 
 
 def merge_surname_prefixes(name_pieces: List[str]) -> List[str]:
+    return _merge_prefixes(BEGINNING_SURNAME_PREFIXES, SURNAME_PREFIXES, name_pieces)
+
+
+def merge_given_prefixes(name_pieces: List[str]) -> List[str]:
+    return _merge_prefixes(BEGINNING_GIVEN_PREFIXES, GIVEN_PREFIXES, name_pieces)
+
+
+def _merge_prefixes(beginning_prefixes: Set[str], anywhere_prefixes: Set[str], name_pieces: List[str]) -> List[str]:
     prefixes = []
     pieces = []
     for ix, piece in enumerate(name_pieces):
-        if (ix == 0 and piece in BEGINNING_SURNAME_PREFIXES) or (piece in SURNAME_PREFIXES):
+        if (ix == 0 and piece in beginning_prefixes) or (piece in anywhere_prefixes):
             prefixes.append(piece)
         else:
             if len(prefixes) > 0:
@@ -29,6 +40,10 @@ def merge_surname_prefixes(name_pieces: List[str]) -> List[str]:
         piece = "".join(prefixes)
         pieces.append(piece)
     return pieces
+
+
+def expand_given_abbrevs(name_pieces: List[str]) -> List[str]:
+    return [GIVEN_ABBREVS.get(piece, piece) for piece in name_pieces]
 
 
 def remove_noise_words(name_pieces: List[str], is_surname: bool) -> List[str]:
@@ -67,9 +82,14 @@ def normalize(name: str, is_surname: bool, preserve_wildcards: bool = False) -> 
     normalized = re.sub(" +", " ", normalized).strip()
     # split into pieces
     pieces = normalized.split(" ")
-    # merge surname prefixes
+    # expand abbrevs
+    if not is_surname:
+        pieces = expand_given_abbrevs(pieces)
+    # merge prefixes
     if is_surname:
         pieces = merge_surname_prefixes(pieces)
+    else:
+        pieces = merge_given_prefixes(pieces)
     # remove noise words
     pieces = remove_noise_words(pieces, is_surname)
     # remove numbers (kept until now so we could remove 1st as a noise word instead of having st as a prefix)

@@ -30,6 +30,11 @@ Using deep learning to find similar personal names
 * fe2 stop < name >       # stopped instances can be re-started with fe2 start < name >
 * fe2 terminate < name >  # releases instance name and associated disk
 
+### Logging into Weights and Biases
+* run `wandb login`
+* login information will be added to your ~/.netrc file
+* copy just that information from ~/.netrc to ~/.netrc.wandb. This file will be added to machines launched with FastEC2
+
 ## Data
 ### locations
 * raw data can be found at s3://familysearch-names/raw 

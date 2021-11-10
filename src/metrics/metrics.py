@@ -1,7 +1,8 @@
 import math
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
+from mpire import WorkerPool
 import numpy as np
 import scipy
 
@@ -25,7 +26,7 @@ def recall_k(actuals: list, candidates: list, k: int) -> float:
 
 
 def precision_recall_at_k(
-        actuals_list: List[list], candidates_list: List[list], max_k: int
+    actuals_list: List[list], candidates_list: List[list], max_k: int
 ) -> (List[float], List[float]):
     """
     Return a list of average precisions and recalls for 1..max_k for the given actuals and candidates
@@ -56,15 +57,15 @@ def show_precision_recall_curve(precisions: List[float], recalls: List[float]):
 
 
 def precision_at_threshold(
-        weighted_actual_names: List[Tuple[str, float, int]],
-        candidates: List[Tuple[str, float]],
-        threshold: float,
-        distances: bool = False,
+    weighted_actual_names: List[Tuple[str, float, int]],
+    candidates: np.ndarray,
+    threshold: float,
+    distances: bool = False,
 ) -> float:
     """
     Return the precision at a threshold for the given weighted-actuals and candidates
     :param weighted_actual_names: list of [name, weight, ?] - weight and ? are ignored
-    :param candidates: list of [name, score]
+    :param candidates: array of [name, score]
     :param threshold: threshold
     :param distances: if True, score must be <= threshold; if False, score must be >= threshold; defaults to False
     """
@@ -80,16 +81,16 @@ def precision_at_threshold(
 
 
 def weighted_recall_at_threshold(
-        weighted_actual_names: List[Tuple[str, float, int]],
-        candidates: np.ndarray,
-        threshold: float,
-        distances: bool = False,
+    weighted_actual_names: List[Tuple[str, float, int]],
+    candidates: np.ndarray,
+    threshold: float,
+    distances: bool = False,
 ) -> float:
     """
     Return the weighted-recall at a threshold for the given weighted-actuals and candidates,
     where weighted-recall is the sum of the weights of each matched name
     :param weighted_actual_names: list of [name, weight, ?] - weight and ? are ignored
-    :param candidates: list of [name, score]
+    :param candidates: array of [name, score]
     :param threshold: threshold
     :param distances: if True, score must be <= threshold; if False, score must be >= threshold; defaults to False
     """
@@ -102,10 +103,10 @@ def weighted_recall_at_threshold(
 
 
 def avg_precision_at_threshold(
-        weighted_actual_names_list: List[List[Tuple[str, float, int]]],
-        candidates_list: np.ndarray,
-        threshold: float,
-        distances: bool = False,
+    weighted_actual_names_list: List[List[Tuple[str, float, int]]],
+    candidates_list: np.ndarray,
+    threshold: float,
+    distances: bool = False,
 ) -> float:
     """
     Return the average precision at a threshold for a list of weighted-actuals and a list of candidates.
@@ -124,10 +125,10 @@ def avg_precision_at_threshold(
 
 
 def avg_weighted_recall_at_threshold(
-        weighted_actual_names_list: List[List[Tuple[str, float, int]]],
-        candidates_list: np.ndarray,
-        threshold: float,
-        distances: bool = False,
+    weighted_actual_names_list: List[List[Tuple[str, float, int]]],
+    candidates_list: np.ndarray,
+    threshold: float,
+    distances: bool = False,
 ) -> float:
     """
     Return the average weighted-recall at a threshold of a list of weighted-actuals and a list of candidates
@@ -143,12 +144,12 @@ def avg_weighted_recall_at_threshold(
 
 
 def precision_weighted_recall_curve_at_threshold(
-        weighted_actual_names_list: List[List[Tuple[str, float, int]]],
-        candidates_list: np.ndarray,
-        min_threshold: float = 0.5,
-        max_threshold: float = 1.0,
-        step=0.01,
-        distances=False,
+    weighted_actual_names_list: List[List[Tuple[str, float, int]]],
+    candidates_list: np.ndarray,
+    min_threshold: float = 0.5,
+    max_threshold: float = 1.0,
+    step=0.01,
+    distances=False,
 ):
     """
     Plot precision-weighted-recall curve for threshold: min_threshold..max_threshold, with step
@@ -162,45 +163,59 @@ def precision_weighted_recall_curve_at_threshold(
 
 
 def precision_weighted_recall_at_threshold(
-        weighted_actual_names_list: List[List[Tuple[str, float, int]]],
-        candidates_list: np.ndarray,
-        min_threshold: float = 0.5,
-        max_threshold: float = 1.0,
-        step=0.01,
-        distances=False,
+    weighted_actual_names_list: List[List[Tuple[str, float, int]]],
+    candidates_list: np.ndarray,
+    min_threshold: float = 0.5,
+    max_threshold: float = 1.0,
+    step=0.01,
+    distances=False,
+    n_jobs=-1,
+    progress_bar=False,
 ) -> (List[float], List[float]):
     """
     Return lists of average precisions and average weighted-recalls for threshold: min_threshold..max_threshold, with step
     """
-    precisions = []
-    recalls = []
-    for i in np.arange(min_threshold, max_threshold, step):
-        precisions.append(
-            np.mean(
-                [
-                    precision_at_threshold(a, c, i, distances)
-                    for a, c in zip(weighted_actual_names_list, candidates_list)
-                ]
-            )
+
+    def get_precision_recall(shared, threshold):
+        weighted_actual_names_list, candidates_list, distances = shared
+        precision = np.mean(
+            [
+                precision_at_threshold(a, c, threshold, distances)
+                for a, c in zip(weighted_actual_names_list, candidates_list)
+            ]
         )
-        recalls.append(
-            np.mean(
-                [
-                    weighted_recall_at_threshold(a, c, i, distances)
-                    for a, c in zip(weighted_actual_names_list, candidates_list)
-                ]
-            )
+        recall = np.mean(
+            [
+                weighted_recall_at_threshold(a, c, threshold, distances)
+                for a, c in zip(weighted_actual_names_list, candidates_list)
+            ]
         )
+        return precision, recall, threshold
+
+    thresholds = [i for i in np.arange(min_threshold, max_threshold, step)]
+    if n_jobs < 0:
+        precisions_recalls = [
+            get_precision_recall((weighted_actual_names_list, candidates_list, distances), threshold)
+            for threshold in thresholds
+        ]
+    else:
+        with WorkerPool(shared_objects=(weighted_actual_names_list, candidates_list, distances), n_jobs=n_jobs) as pool:
+            precisions_recalls = pool.map(get_precision_recall, thresholds, progress_bar=progress_bar)
+
+    precisions_recalls.sort(key=lambda tup: tup[2])
+    precisions = [precision for precision, _, _ in precisions_recalls]
+    recalls = [recall for _, recall, _ in precisions_recalls]
+
     return precisions, recalls
 
 
 def get_auc(
-        weighted_actual_names_list: List[List[Tuple[str, float, int]]],
-        candidates_list: np.ndarray,
-        min_threshold: float = 0.5,
-        max_threshold: float = 1.0,
-        step: float = 0.01,
-        distances: bool = False,
+    weighted_actual_names_list: List[List[Tuple[str, float, int]]],
+    candidates_list: np.ndarray,
+    min_threshold: float = 0.5,
+    max_threshold: float = 1.0,
+    step: float = 0.01,
+    distances: bool = False,
 ) -> float:
     """
     Return the area under the curve of precision and weighted-recall
@@ -228,10 +243,7 @@ def get_auc(
     return scipy.integrate.simpson(precs, recs)
 
 
-def ndcg_k(relevant: list,
-           relevancy_scores: list,
-           predicted: list,
-           k: int = None) -> float:
+def ndcg_k(relevant: list, relevancy_scores: list, predicted: list, k: int = None) -> float:
     """
     Computes Normalized Discount Cumulative Gain (nDCG) at cut-off k.
     :param relevant: The list of relevant items.
@@ -249,9 +261,7 @@ def ndcg_k(relevant: list,
     elif k == 0:
         raise ValueError("k must be greater than 0")
     assert len(relevant) == len(relevancy_scores)
-    predicted_item_relevancy_scores = _get_predicted_item_relevancy_scores(relevant,
-                                                                           relevancy_scores,
-                                                                           predicted)
+    predicted_item_relevancy_scores = _get_predicted_item_relevancy_scores(relevant, relevancy_scores, predicted)
     dcg = _dcg_k(predicted_item_relevancy_scores, k)
     idcg = _dcg_k(np.sort(relevancy_scores)[::-1], k)
     ndcg = float(dcg / idcg)
@@ -259,13 +269,11 @@ def ndcg_k(relevant: list,
 
 
 def _dcg_k(relevancy_scores, k):
-    discounts = 1. / np.log2(np.arange(1, min(k, len(relevancy_scores)) + 1) + 1)
+    discounts = 1.0 / np.log2(np.arange(1, min(k, len(relevancy_scores)) + 1) + 1)
     return np.sum(relevancy_scores[:k] * discounts)
 
 
-def _get_predicted_item_relevancy_scores(relevant: list,
-                                         relevancy_scores: list,
-                                         predicted: list) -> np.ndarray:
+def _get_predicted_item_relevancy_scores(relevant: list, relevancy_scores: list, predicted: list) -> np.ndarray:
     """
     Creates a relevancy array for the predicted items using the ground truth relevant items and scores.
     Example:

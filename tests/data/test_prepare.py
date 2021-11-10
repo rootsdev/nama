@@ -9,6 +9,10 @@ from src.data.prepare import (
 
 
 test_normalize_data = [
+    {"input": "den edw", "is_surname": False, "result": ["dennis", "edward"]},
+    {"input": "den edw", "is_surname": True, "result": ["denedw"]},
+    {"input": "constance de la luz", "is_surname": False, "result": ["constance", "delaluz"]},
+    {"input": "constance mc adams", "is_surname": False, "result": ["constance", "mc", "adams"]},
     {"input": "john's", "is_surname": False, "result": ["john"]},
     {"input": "1st john", "is_surname": False, "result": ["john"]},
     {"input": "j0hn", "is_surname": False, "result": ["jhn"]},

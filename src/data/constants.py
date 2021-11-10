@@ -6,6 +6,54 @@ END_TOKEN = ">"
 ALPHABET = string.ascii_lowercase + BEGIN_TOKEN + END_TOKEN
 VOCAB_SIZE = len(ALPHABET)
 
+BEGINNING_GIVEN_PREFIXES = set()
+
+GIVEN_PREFIXES = {
+    "de",
+    "la",
+    "del",
+    "los",
+    "da",
+}
+
+GIVEN_ABBREVS = {
+    "abr": "abraham",
+    "ant": "anthony",
+    "aug": "augustus",
+    "benj": "benjamin",
+    "chas": "charles",
+    "danl": "daniel",
+    "den": "dennis",
+    "edw": "edward",
+    "eliz": "elizabeth",
+    "geo": "george",
+    "hel": "helen",
+    "hen": "henry",
+    "jac": "jacob",
+    "jas": "james",
+    "jn": "john",
+    "jno": "john",
+    "jon": "jonathan",
+    "jos": "joseph",
+    "ma": "maria",
+    "margt": "margaret",
+    "my": "mary",
+    "ol": "oliver",
+    "pet": "peter",
+    "ric": "richard",
+    "richd": "richard",
+    "robt": "robert",
+    "saml": "samuel",
+    "sar": "sarah",
+    "sim": "simon",
+    "sol": "solomon",
+    "sus": "susan",
+    "tho": "thomas",
+    "thos": "thomas",
+    "urs": "ursula",
+    "wm": "william",
+}
+
 BEGINNING_SURNAME_PREFIXES = {
     "e",
     "o",
@@ -150,7 +198,7 @@ SURNAME_PREFIXES = {
     "vonder",
     "vor",
     "w",
-    "zu"
+    "zu",
 }
 
 NOISE_WORDS = {
@@ -238,7 +286,7 @@ NOISE_WORDS = {
     "unrecorded",
     "widow",
     "wife",
-    "y"
+    "y",
 }
 
 POSS_NOISE_WORDS = {
@@ -292,13 +340,18 @@ POSS_NOISE_WORDS = {
     "sister",
     "ssi",
     "the",
-    "twin"
+    "twin",
 }
 
 POSS_SURNAME_NOISE_WORDS = {"ui"}
 
 PATRONYMIC_PATTERNS = [
-    {"replacement": "son", "pattern": re.compile("(son|ssen|sson|sen|sdr|sdtr|sdt|sd|sdatter|sdattir|sdattor|sdaatter|sdaattir|sdaattor|sdater|sdatir|sdator|sdotter|sdottir|sdottor|sdoter|sdotir|sdotor|dr|dtr|datter|dattir|dattor|daatter|daattir|daattor|dater|datir|dator|dotter|dottir|dottor|doter|dotir|dotor)$")},
+    {
+        "replacement": "son",
+        "pattern": re.compile(
+            "(son|ssen|sson|sen|sdr|sdtr|sdt|sd|sdatter|sdattir|sdattor|sdaatter|sdaattir|sdaattor|sdater|sdatir|sdator|sdotter|sdottir|sdottor|sdoter|sdotir|sdotor|dr|dtr|datter|dattir|dattor|daatter|daattir|daattor|dater|datir|dator|dotter|dottir|dottor|doter|dotir|dotor)$"
+        ),
+    },
     {"replacement": "ovich", "pattern": re.compile("ovna$")},
     {"replacement": "evich", "pattern": re.compile("evna$")},
     {"replacement": "ich", "pattern": re.compile("(inichna|ichna)$")},
