@@ -1,42 +1,63 @@
 import numpy as np
 import pandas as pd
+from typing import List, Tuple
+
+from src.models.utils import add_padding
 
 
-def _train_test_split(
-    df: pd.DataFrame, source_label: str, target_label: str, starting_test_size: float = 0.2
-) -> (pd.DataFrame, pd.DataFrame):
+def load_train_test(paths: List[str]) -> List[Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]]:
     """
-    Split into train and test sets,
-    with the condition that a target_label value cannot appear in both train and test splits
-    and the condition that a source_label value cannot appear in both train and test splits
+    Load and process train and test datasets
+    """
+    return [_load(pd.read_csv(path)) for path in paths]
+
+
+def _prepare(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Given a dataframe, calculate the correct weighted_count
     """
 
-    # start with a test set twice what was asked for
-    msk = np.random.uniform(0, 1, len(df)) < 1 - starting_test_size
-    df_train = df[msk].copy()
-    df_test = df[~msk].copy()
+    def divide_weighted_count_by_sum(df):
+        df["weighted_count"] /= df["weighted_count"].sum()
+        return df
 
-    # loop until no overlapping names
-    while True:
-        # Find target names that are both in train and test
-        train_names = list(df_train[target_label].unique())
-        msk = df_test[target_label].isin(train_names)
-        df_duplicated = df_test[msk].copy()
-        # Remove duplicated names from test and add it to train
-        df_test.drop(df_test[msk].index, inplace=True)
-        df_train = pd.concat([df_train, df_duplicated], axis=0)
+    # Add padding
+    df.loc[:, "name1"] = df.loc[:, "name1"].map(add_padding)
+    df.loc[:, "name2"] = df.loc[:, "name2"].map(add_padding)
+    # weighted_count will be the co-occurrence / sum(co-occurrences)
+    df.loc[:, "weighted_count"] = df.loc[:, "co_occurrence"]
 
-        # Find source names that are both in train and test
-        train_names = list(df_train[source_label].unique())
-        msk = df_test[source_label].isin(train_names)
-        df_duplicated = df_test[msk].copy()
-        if df_duplicated.shape[0] == 0:
-            break
-        # Remove duplicated names from test and add it to train
-        df_test.drop(df_test[msk].index, inplace=True)
-        df_train = pd.concat([df_train, df_duplicated], axis=0)
+    # probably doesn't have to group the first time for familysearch,
+    # but it doesn't hurt and it may be required for ancestry
+    df = (
+        df.groupby(["name1", "name2"])
+        .agg({"weighted_count": "sum", "co_occurrence": "sum"})
+        .groupby(level=0)
+        .apply(divide_weighted_count_by_sum)
+        .reset_index()
+    )
+    # TODO remove co_occurrence count if we don't use it
+    return df
 
-    assert not len(set(df_train[target_label].tolist()).intersection(set(df_test[target_label].tolist())))
-    assert not len(set(df_train[source_label].tolist()).intersection(set(df_test[source_label].tolist())))
 
-    return df_train, df_test
+def _load(df: pd.DataFrame) -> (List[str], List[List[Tuple[str, float, int]]], np.array):
+    """
+    Given a dataframe, return
+    a list of input names (distinct name1),
+    a list of lists of weighted actual names (name2, weighted_count (probability that name1 -> name2, and co_occurrence)
+     for each input name
+    a list of candidate names (distinct name2)
+    """
+    df_name_matches = df.groupby("name1").agg(list).reset_index()
+    weighted_actual_names = [
+        [(n, w, c) for n, w, c in zip(ns, ws, cs)]
+        for ns, ws, cs in zip(
+            df_name_matches["name2"], df_name_matches["weighted_count"], df_name_matches["co_occurrence"]
+        )
+    ]
+    input_names = df_name_matches["name1"].tolist()
+    candidate_names = np.array(df["name2"].unique())
+
+    # if you want just relevant names:
+    # [[name for name,weight in name_weights] for name_weights in weighted_actual_names]
+    return input_names, weighted_actual_names, candidate_names
