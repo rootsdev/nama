@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.data.utils import _prepare
+from src.data.utils import _add_weighted_count, _add_padding
 
 
 def train_test_split(
@@ -30,6 +30,7 @@ def train_test_split(
      - if 0 is passed in, use alt-names that appear anywhere in preferred tree names
     """
     # read the pairs
+    print("read pairs")
     df = pd.read_csv(dataset_path)
     df.dropna(inplace=True)
     # drop unused columns and free memory
@@ -39,26 +40,40 @@ def train_test_split(
     df.rename(columns={"name": "name1", "alt_name": "name2", "frequency": "co_occurrence"}, inplace=True)
 
     # read the preferred names
+    print("read preferred names")
     pref_df = pd.read_csv(pref_path)
 
     # get frequent names and training names
+    print("calc train and test splits")
     freq_names = set(pref_df["name"][:freq_cutoff])
     train_names = set(pref_df["name"] if train_cutoff == 0 else pref_df["name"][:train_cutoff])
 
     # train
-    train_df = _prepare(df[df["name2"].isin(train_names)].copy())
+    print("add weighted count to train")
+    train_df = _add_weighted_count(df[df["name2"].isin(train_names)].copy())
 
     # test
-    test_df = _prepare(df[~df["name2"].isin(train_names)].copy())
+    print("add weighted count to test")
+    test_df = _add_weighted_count(df[~df["name2"].isin(train_names)].copy())
 
     # freq train (for testing in-vocab variants)
-    freq_train_df = _prepare(train_df[train_df["name1"].isin(freq_names)].copy())
+    print("add weighted count to freq_train")
+    freq_train_df = _add_weighted_count(train_df[train_df["name1"].isin(freq_names)].copy())
 
     # freq test (for testing out-of-vocab variants)
-    freq_test_df = _prepare(test_df[test_df["name1"].isin(freq_names)].copy())
+    print("add weighted count to freq_test")
+    freq_test_df = _add_weighted_count(test_df[test_df["name1"].isin(freq_names)].copy())
+
+    # add padding
+    print("add padding")
+    train_df = _add_padding(train_df)
+    test_df = _add_padding(test_df)
+    freq_train_df = _add_padding(freq_train_df)
+    freq_test_df = _add_padding(freq_test_df)
 
     # Persist splits on disk
-    train_df.to_csv(train_path)
-    test_df.to_csv(test_path)
-    freq_train_df.to_csv(freq_train_path)
-    freq_test_df.to_csv(freq_test_path)
+    print("persist")
+    train_df.to_csv(train_path, index=False)
+    test_df.to_csv(test_path, index=False)
+    freq_train_df.to_csv(freq_train_path, index=False)
+    freq_test_df.to_csv(freq_test_path, index=False)

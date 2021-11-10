@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-from src.data.utils import _prepare
+from src.data.utils import _add_weighted_count, _add_padding
 
 
 def train_test_split(dataset_path: str, train_path: str, test_path: str, test_size: float = 0.1):
@@ -35,8 +35,10 @@ def train_test_split(dataset_path: str, train_path: str, test_path: str, test_si
     assert not len(set(df_train[target_label].tolist()).intersection(set(df_test[target_label].tolist())))
 
     # set the ordered_prob column and limit the columns to save
-    df_train = _prepare(df_train)
-    df_test = _prepare(df_test)
+    df_train = _add_weighted_count(df_train)
+    df_train = _add_padding(df_train)
+    df_test = _add_weighted_count(df_test)
+    df_test = _add_padding(df_test)
 
     # Persist splits on disk
     df_train.to_csv(train_path)

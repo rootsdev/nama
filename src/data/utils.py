@@ -12,18 +12,15 @@ def load_train_test(paths: List[str]) -> List[Tuple[List[str], List[List[Tuple[s
     return [_load(pd.read_csv(path)) for path in paths]
 
 
-def _prepare(df: pd.DataFrame) -> pd.DataFrame:
+def _add_weighted_count(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Given a dataframe, calculate the correct weighted_count
+    Given a dataframe, calculate the correct weighted_count and add padding
     """
 
     def divide_weighted_count_by_sum(df):
         df["weighted_count"] /= df["weighted_count"].sum()
         return df
 
-    # Add padding
-    df.loc[:, "name1"] = df.loc[:, "name1"].map(add_padding)
-    df.loc[:, "name2"] = df.loc[:, "name2"].map(add_padding)
     # weighted_count will be the co-occurrence / sum(co-occurrences)
     df.loc[:, "weighted_count"] = df.loc[:, "co_occurrence"]
 
@@ -37,6 +34,17 @@ def _prepare(df: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
     # TODO remove co_occurrence count if we don't use it
+    return df
+
+
+def _add_padding(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add padding to name1 and name2
+    :param df: input dataframe
+    :return: input dataframe with name1 and name2 columns padded
+    """
+    df.loc[:, "name1"] = df.loc[:, "name1"].map(add_padding)
+    df.loc[:, "name2"] = df.loc[:, "name2"].map(add_padding)
     return df
 
 

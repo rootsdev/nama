@@ -21,4 +21,5 @@ source activate nama
 make requirements
 make sync_data_from_s3
 python -m ipykernel install --user --name nama
+nbstripout --install
 ENDSSH
