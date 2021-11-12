@@ -96,3 +96,5 @@ target/
 # scripts generated from notebooks
 /scripts/
 
+# wandb
+/notebooks/wandb/

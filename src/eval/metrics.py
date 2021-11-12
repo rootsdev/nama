@@ -56,6 +56,14 @@ def show_precision_recall_curve(precisions: List[float], recalls: List[float]):
     plt.show()
 
 
+def _get_matches(candidates: np.ndarray, threshold: float, distances: bool = False):
+    return set(
+        candidates[candidates[:, 1] <= threshold][:, 0]
+        if distances
+        else candidates[candidates[:, 1] >= threshold][:, 0]
+    )
+
+
 def precision_at_threshold(
     weighted_actual_names: List[Tuple[str, float, int]],
     candidates: np.ndarray,
@@ -69,11 +77,7 @@ def precision_at_threshold(
     :param threshold: threshold
     :param distances: if True, score must be <= threshold; if False, score must be >= threshold; defaults to False
     """
-    matches = (
-        candidates[candidates[:, 1] <= threshold][:, 0]
-        if distances
-        else candidates[candidates[:, 1] >= threshold][:, 0]
-    )
+    matches = _get_matches(candidates, threshold, distances)
     num_matches = len(matches)
     if num_matches == 0:
         return 1.0
@@ -94,11 +98,7 @@ def weighted_recall_at_threshold(
     :param threshold: threshold
     :param distances: if True, score must be <= threshold; if False, score must be >= threshold; defaults to False
     """
-    matches = (
-        candidates[candidates[:, 1] <= threshold][:, 0]
-        if distances
-        else candidates[candidates[:, 1] >= threshold][:, 0]
-    )
+    matches = _get_matches(candidates, threshold, distances)
     return sum(weight for name, weight, _ in weighted_actual_names if name in matches)
 
 

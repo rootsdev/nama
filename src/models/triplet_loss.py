@@ -7,7 +7,8 @@ from collections import defaultdict
 from tqdm import tqdm, trange
 
 from src.models import utils
-from src.metrics import metrics
+from src.eval import metrics
+from src.eval.encoder import eval_encoder
 
 
 def get_near_negatives(
@@ -139,12 +140,13 @@ def train_triplet_loss(
         shuffle=True,
     )
 
+    model.to(device)
+    model.device = device
+
     with trange(num_epochs) as pbar:
         for _ in pbar:
             # train on gpu if there is one
             model.train()
-            model.to(device)
-            model.device = device
             losses = []
             for i, (anchor_tensor, pos_tensor, neg_tensor) in enumerate(data_loader):
                 # Clear out gradient
@@ -160,14 +162,11 @@ def train_triplet_loss(
                 loss.backward()
                 optimizer.step()
 
-            # eval on cpu because test dataset doesn't fit on gpu
             model.eval()
-            model.to("cpu")
-            model.device = "cpu"
             with torch.no_grad():
-                candidate_names_train_encoded = model(candidate_names_train_X, just_encoder=True).detach().numpy()
-                input_names_test_encoded = model(input_names_test_X, just_encoder=True).detach().numpy()
-                candidate_names_test_encoded = model(candidate_names_test_X, just_encoder=True).detach().numpy()
+                candidate_names_train_encoded = eval_encoder(model, candidate_names_train_X, batch_size)
+                input_names_test_encoded = eval_encoder(model, input_names_test_X, batch_size)
+                candidate_names_test_encoded = eval_encoder(model, candidate_names_test_X, batch_size)
                 candidate_names_all_encoded = np.vstack((candidate_names_train_encoded, candidate_names_test_encoded))
                 best_matches = utils.get_best_matches(
                     input_names_test_encoded,

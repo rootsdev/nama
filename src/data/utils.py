@@ -66,6 +66,12 @@ def _load(df: pd.DataFrame) -> (List[str], List[List[Tuple[str, float, int]]], n
     input_names = df_name_matches["name1"].tolist()
     candidate_names = np.array(df["name2"].unique())
 
+    # add (name1, 0.0, 0) to each weighted_actual_names list
+    # so if a name matches itself, it doesn't hurt precision
+    for ix in range(0, len(input_names)):
+        name1 = input_names[ix]
+        weighted_actual_names[ix].append((name1, 0.0, 0))
+
     # if you want just relevant names:
     # [[name for name,weight in name_weights] for name_weights in weighted_actual_names]
     return input_names, weighted_actual_names, candidate_names

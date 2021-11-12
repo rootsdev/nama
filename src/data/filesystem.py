@@ -11,7 +11,7 @@ def glob(path):
         return glob.glob(path)
 
 
-def fopen(path, mode, encoding):
+def fopen(path, mode=None, encoding=None):
     if path.startswith("s3://"):
         return fs.open(path, mode=mode, encoding=encoding)
     else:

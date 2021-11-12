@@ -98,6 +98,7 @@ def normalize(name: str, is_surname: bool, preserve_wildcards: bool = False) -> 
     # remove empty names and single-character surnames
     pieces = [piece for piece in pieces if piece and (len(piece) > 1 or not is_surname)]
     # if no pieces, return the normalized name (or the original name if normalized is empty) with spaces removed
+    # this unfortunately creates a loophole that allows names that are not a-z, which have to be removed later
     if len(pieces) == 0:
         pieces = [re.sub("\\s", "", normalized if normalized else name)]
     # standardize patronymics
