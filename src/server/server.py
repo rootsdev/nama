@@ -8,7 +8,7 @@ import torch
 from typing import List
 
 from src.data.prepare import standardize_patronymics
-from src.models import utils
+from models.autoencoder import convert_names_to_model_inputs
 
 # run using uvicorn src.server.server:app --reload
 
@@ -33,8 +33,6 @@ clusters_df = {
     "given": load_clusters(given_clusters_filename),
     "surname": load_clusters(surname_clusters_filename),
 }
-char_to_idx_map, idx_to_char_map = utils.build_token_idx_maps()
-MAX_NAME_LENGTH = 30
 
 
 class GivenSurname(str, Enum):
@@ -70,21 +68,21 @@ app = FastAPI()
 @app.get("/vector/{given_surname}/{name}", response_model=VectorResponse)
 def vector(given_surname: GivenSurname, name: str):
     """
-    Name must be normalized, but this function standardizes patronymics
+    Name must be normalized, but this function standardizes patronymics in case they haven't already been standardized
     """
     if given_surname == GivenSurname.surname:
         name = standardize_patronymics(name)
     # convert name to a tensor
-    names_tensor, _ = utils.convert_names_to_model_inputs([name], char_to_idx_map, MAX_NAME_LENGTH)
-    # Get Embeddings for the names from the encoder
-    names_encoded = models[given_surname](names_tensor, just_encoder=True).detach().numpy()
-    return VectorResponse(vector=names_encoded[0].tolist())
+    names_X, _ = convert_names_to_model_inputs([name])
+    # Get embeddings for the name from the encoder
+    name_embeddings = models[given_surname](names_X, just_encoder=True).detach().numpy()
+    return VectorResponse(vector=name_embeddings[0].tolist())
 
 
 @app.get("/standard/{given_surname}/{name}", response_model=StandardResponse)
 def standard(given_surname: GivenSurname, name: str):
     """
-    Name must be normalized, but this function standardizes patronymics
+    Name must be normalized, but this function standardizes patronymics in case they haven't already been standardized
     """
     if given_surname == GivenSurname.surname:
         name = standardize_patronymics(name)

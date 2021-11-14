@@ -66,7 +66,9 @@ def standardize_patronymics(name: str) -> str:
     return name
 
 
-def normalize(name: str, is_surname: bool, preserve_wildcards: bool = False) -> List[str]:
+def normalize(
+    name: str, is_surname: bool, preserve_wildcards: bool = False, handle_patronymics: bool = True
+) -> List[str]:
     # remove diacritics
     normalized = unidecode(name)
     # lowercase
@@ -94,7 +96,8 @@ def normalize(name: str, is_surname: bool, preserve_wildcards: bool = False) -> 
     pieces = remove_noise_words(pieces, is_surname)
     # remove numbers (kept until now so we could remove 1st as a noise word instead of having st as a prefix)
     pieces = [re.sub("[0-9]", "", piece) for piece in pieces]
-    # TODO consider removing noise words again so we remove things like mr1
+    # remove noise words again so we remove things like mr1
+    pieces = remove_noise_words(pieces, is_surname)
     # remove empty names and single-character surnames
     pieces = [piece for piece in pieces if piece and (len(piece) > 1 or not is_surname)]
     # if no pieces, return the normalized name (or the original name if normalized is empty) with spaces removed
@@ -102,7 +105,7 @@ def normalize(name: str, is_surname: bool, preserve_wildcards: bool = False) -> 
     if len(pieces) == 0:
         pieces = [re.sub("\\s", "", normalized if normalized else name)]
     # standardize patronymics
-    if is_surname:
+    if is_surname and handle_patronymics:
         pieces = [standardize_patronymics(piece) for piece in pieces]
     # return pieces
     return pieces

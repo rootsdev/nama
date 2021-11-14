@@ -50,14 +50,18 @@ test_normalize_data = [
     {"input": "van derleek", "is_surname": True, "result": ["vanderleek"]},
     {"input": "vanderleek", "is_surname": True, "result": ["vanderleek"]},
     {"input": "van der leek horn", "is_surname": True, "result": ["vanderleek", "horn"]},
+    {"input": "Pastor50y", "is_surname": True, "result": ["pastory"]},
+    {"input": "Pastor 50 y", "is_surname": True, "result": ["pastor50y"]},
+    {"input": "Baby1", "is_surname": False, "result": ["baby1"]},
     {"input": "Jo?n* Sm?th", "is_surname": False, "preserve_wildcards": True, "result": ["jo?n*", "sm?th"]},
+    {"input": "Jo?n* Sm?th", "is_surname": False, "preserve_wildcards": False, "result": ["jo", "n", "sm"]},
 ]
 
 
 def test_normalize():
     for test_data in test_normalize_data:
         result = normalize(
-            test_data["input"], test_data["is_surname"], preserve_wildcards="preserve_wildcards" in test_data
+            test_data["input"], test_data["is_surname"], preserve_wildcards=test_data.get("preserve_wildcards", False)
         )
         assert result == test_data["result"], f"unexpected result {result} for {test_data['input']}"
 

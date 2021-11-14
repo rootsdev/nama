@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.data.utils import _add_weighted_count, _add_padding
+from src.data.utils import add_weighted_count, _add_padding
 
 
 def train_test_split(
@@ -48,7 +48,7 @@ def train_test_split(
     df.rename(columns={"name": "name1", "alt_name": "name2", "frequency": "co_occurrence"}, inplace=True)
 
     # remove illegal names (these can happen because of the loophole in normalize
-    df = df[df["name1"].str.match("[a-z]+") & df["name2"].str.match("[a-z]+")]
+    df = df[df["name1"].str.match("^[a-z]+$") & df["name2"].str.match("^[a-z]+$")]
 
     # read the preferred names
     print("read preferred names")
@@ -62,27 +62,27 @@ def train_test_split(
 
     # train
     print("add weighted count to train")
-    train_df = _add_weighted_count(df[df["name2"].isin(train_names)].copy())
+    train_df = add_weighted_count(df[df["name2"].isin(train_names)].copy())
 
     # test
     print("add weighted count to test")
-    test_df = _add_weighted_count(df[~df["name2"].isin(train_names)].copy())
+    test_df = add_weighted_count(df[~df["name2"].isin(train_names)].copy())
 
     # tiny train (for testing in-vocab variants during development)
     print("add weighted count to tiny_train")
-    tiny_train_df = _add_weighted_count(train_df[train_df["name1"].isin(tiny_names)].copy())
+    tiny_train_df = add_weighted_count(train_df[train_df["name1"].isin(tiny_names)].copy())
 
     # freq train (for testing in-vocab variants)
     print("add weighted count to freq_train")
-    freq_train_df = _add_weighted_count(train_df[train_df["name1"].isin(freq_names)].copy())
+    freq_train_df = add_weighted_count(train_df[train_df["name1"].isin(freq_names)].copy())
 
     # tiny test (for testing out-of-vocab variants)
     print("add weighted count to tiny_test")
-    tiny_test_df = _add_weighted_count(test_df[test_df["name1"].isin(tiny_names)].copy())
+    tiny_test_df = add_weighted_count(test_df[test_df["name1"].isin(tiny_names)].copy())
 
     # freq test (for testing out-of-vocab variants)
     print("add weighted count to freq_test")
-    freq_test_df = _add_weighted_count(test_df[test_df["name1"].isin(freq_names)].copy())
+    freq_test_df = add_weighted_count(test_df[test_df["name1"].isin(freq_names)].copy())
 
     # add padding
     print("add padding")

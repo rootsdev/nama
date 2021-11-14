@@ -12,7 +12,7 @@ def load_train_test(paths: List[str]) -> List[Tuple[List[str], List[List[Tuple[s
     return [_load(pd.read_csv(path)) for path in paths]
 
 
-def _add_weighted_count(df: pd.DataFrame) -> pd.DataFrame:
+def add_weighted_count(df: pd.DataFrame) -> pd.DataFrame:
     """
     Given a dataframe, calculate the correct weighted_count and add padding
     """
@@ -33,7 +33,6 @@ def _add_weighted_count(df: pd.DataFrame) -> pd.DataFrame:
         .apply(divide_weighted_count_by_sum)
         .reset_index()
     )
-    # TODO remove co_occurrence count if we don't use it
     return df
 
 

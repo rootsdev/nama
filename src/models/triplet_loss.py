@@ -1,14 +1,16 @@
-from typing import List, Tuple
+from typing import List, Tuple, Set
 
+import heapq
+import jellyfish
 import numpy as np
 import random
 import torch
 from collections import defaultdict
 from tqdm import tqdm, trange
 
-from src.models import utils
 from src.eval import metrics
-from src.eval.encoder import eval_encoder
+from src.models.autoencoder import get_embeddings_from_X, convert_names_to_model_inputs
+from src.models.utils import get_best_matches, add_padding, remove_padding
 
 
 def get_near_negatives(
@@ -22,15 +24,34 @@ def get_near_negatives(
     :param k: how many near-negatives to return
     :return: dict of name -> list of near-negative names
     """
-    all_names_unpadded = set([utils.remove_padding(name) for name in (input_names + candidate_names.tolist())])
+    all_names_unpadded = set([remove_padding(name) for name in (input_names + candidate_names.tolist())])
     near_negatives = defaultdict(list)
     for name, positives in tqdm(zip(input_names, weighted_actual_names_list), total=len(input_names)):
-        positive_names = set(utils.remove_padding(n) for n, _, _ in positives)
+        positive_names = set(remove_padding(n) for n, _, _ in positives)
         near_negatives[name] = [
-            utils.add_padding(n)
-            for n in utils.get_k_near_negatives(utils.remove_padding(name), positive_names, all_names_unpadded, k)
+            add_padding(n)
+            for n in _get_k_near_negatives(remove_padding(name), positive_names, all_names_unpadded, k)
         ]
     return near_negatives
+
+
+def _get_k_near_negatives(name: str, positive_names: Set[str], all_names: Set[str], k: int) -> List[str]:
+    """
+    Return the k names from all_names that are most-similar to the input name and are not in positive_names
+    :param name: input name
+    :param positive_names: names that are matches to the specified name
+    :param all_names: all candidate names
+    :param k: how many names to return
+    :return: list of names
+    """
+    # TODO re-think this function?
+    similarities = {}
+    for cand_name in all_names:
+        if cand_name != name and cand_name not in positive_names:
+            dist = jellyfish.levenshtein_distance(name, cand_name)
+            similarity = 1 - (dist / max(len(name), len(cand_name)))
+            similarities[cand_name] = similarity
+    return heapq.nlargest(k, similarities.keys(), lambda n: similarities[n])
 
 
 class TripletDataLoader:
@@ -43,8 +64,6 @@ class TripletDataLoader:
         input_names,
         weighted_actual_names_list,
         near_negatives,
-        char_to_idx_map,
-        max_name_length,
         batch_size,
         shuffle,
     ):
@@ -54,8 +73,6 @@ class TripletDataLoader:
                 name_pairs.append([input_name, pos_name])
         self.name_pairs = np.array(name_pairs)
         self.near_negatives = near_negatives
-        self.char_to_idx_map = char_to_idx_map
-        self.max_name_length = max_name_length
         self.batch_size = batch_size
         self.shuffle = shuffle
 
@@ -75,9 +92,9 @@ class TripletDataLoader:
             lambda row: np.array(random.choice(self.near_negatives[row[0]]), object), 1, input_names.reshape(-1, 1)
         )
         # not very efficient to re-convert over and over, but it's convenient to do it here
-        input_tensor, _ = utils.convert_names_to_model_inputs(input_names, self.char_to_idx_map, self.max_name_length)
-        pos_tensor, _ = utils.convert_names_to_model_inputs(pos_names, self.char_to_idx_map, self.max_name_length)
-        neg_tensor, _ = utils.convert_names_to_model_inputs(neg_names, self.char_to_idx_map, self.max_name_length)
+        input_tensor, _ = convert_names_to_model_inputs(input_names)
+        pos_tensor, _ = convert_names_to_model_inputs(pos_names)
+        neg_tensor, _ = convert_names_to_model_inputs(neg_names)
         self.ix += self.batch_size
         return input_tensor, pos_tensor, neg_tensor
 
@@ -85,15 +102,11 @@ class TripletDataLoader:
 def train_triplet_loss(
     model,
     input_names_train,
-    weighted_actual_names_list_train,
+    weighted_actual_names_train,
     near_negatives_train,
     input_names_test,
-    weighted_actual_names_list_test,
+    weighted_actual_names_test,
     candidate_names_test,
-    candidate_names_train,
-    candidate_names_all,
-    char_to_idx_map,
-    max_name_length,
     num_epochs=100,
     batch_size=128,
     margin=0.1,
@@ -104,13 +117,11 @@ def train_triplet_loss(
     Train triplet loss
     :param model: from autoencoder
     :param input_names_train: list of names (name1)
-    :param weighted_actual_names_list_train: list of lists of (name, weight, frequency) for each name in input_names
-    :param near_negatives_train: list of lists of near-negative names for each name in input_names
+    :param weighted_actual_names_train: list of list of (name, weight, frequency) for each name in input_names
+    :param near_negatives_train: list of list of near-negative names for each name in input_names
     :param input_names_test: list of names for testing
-    :param weighted_actual_names_list_test: actuals for testing
+    :param weighted_actual_names_test: actuals for testing
     :param candidate_names_test: candidate names (name2) for testing
-    :param candidate_names_train: candidate names (name2) for training
-    :param candidate_names_all: all candidate names (name2)
     :param char_to_idx_map: map characters to ids
     :param max_name_length: max name length
     :param num_epochs: number of epochs to train
@@ -122,30 +133,23 @@ def train_triplet_loss(
     optimizer = torch.optim.Adam(model.parameters())
     loss_fn = torch.nn.TripletMarginLoss(margin=margin, p=2)
 
-    candidate_names_train_X, _ = utils.convert_names_to_model_inputs(
-        candidate_names_train, char_to_idx_map, max_name_length
-    )
-    input_names_test_X, _ = utils.convert_names_to_model_inputs(input_names_test, char_to_idx_map, max_name_length)
-    candidate_names_test_X, _ = utils.convert_names_to_model_inputs(
-        candidate_names_test, char_to_idx_map, max_name_length
-    )
+    input_names_test_X, _ = convert_names_to_model_inputs(input_names_test)
+    candidate_names_test_X, _ = convert_names_to_model_inputs(candidate_names_test)
 
     data_loader = TripletDataLoader(
         input_names_train,
-        weighted_actual_names_list_train,
+        weighted_actual_names_train,
         near_negatives_train,
-        char_to_idx_map,
-        max_name_length,
         batch_size,
         shuffle=True,
     )
 
+    # train on gpu if there is one
     model.to(device)
     model.device = device
 
     with trange(num_epochs) as pbar:
         for _ in pbar:
-            # train on gpu if there is one
             model.train()
             losses = []
             for i, (anchor_tensor, pos_tensor, neg_tensor) in enumerate(data_loader):
@@ -164,27 +168,24 @@ def train_triplet_loss(
 
             model.eval()
             with torch.no_grad():
-                candidate_names_train_encoded = eval_encoder(model, candidate_names_train_X, batch_size)
-                input_names_test_encoded = eval_encoder(model, input_names_test_X, batch_size)
-                candidate_names_test_encoded = eval_encoder(model, candidate_names_test_X, batch_size)
-                candidate_names_all_encoded = np.vstack((candidate_names_train_encoded, candidate_names_test_encoded))
-                best_matches = utils.get_best_matches(
-                    input_names_test_encoded,
-                    candidate_names_all_encoded,
-                    candidate_names_all,
+                input_name_test_embeddings = get_embeddings_from_X(model, input_names_test_X, batch_size)
+                candidate_name_test_embeddings = get_embeddings_from_X(model, candidate_names_test_X, batch_size)
+                best_matches = get_best_matches(
+                    input_name_test_embeddings,
+                    candidate_name_test_embeddings,
+                    candidate_names_test,
                     num_candidates=k,
                     metric="euclidean",
                 )
             # calc test AUC
             auc = metrics.get_auc(
-                weighted_actual_names_list_test,
+                weighted_actual_names_test,
                 best_matches,
                 min_threshold=0.0,
                 max_threshold=10.0,
                 step=0.01,
                 distances=True,
             )
-            print("test AUC", auc)
 
             # Update loss value on progress bar
             pbar.set_postfix({"loss": sum(losses) / len(losses), "auc": auc})

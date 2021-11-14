@@ -1,7 +1,5 @@
-from typing import Dict, List, Union, Set
+from typing import Dict, List, Union
 
-import heapq
-import jellyfish
 from mpire import WorkerPool
 import numpy as np
 import pandas as pd
@@ -42,6 +40,8 @@ def get_best_matches(
     num_candidates: int = 10,
     metric: str = "cosine",
     normalized: bool = False,
+    batch_size: int = 512,
+    n_jobs: int = None,
 ) -> np.ndarray:
     """
     A function that computes scores between the input names and the source names using the given metric type
@@ -54,16 +54,21 @@ def get_best_matches(
     :param num_candidates: Number of candidates to retrieve per name
     :param metric: Type of metric to use for fetching candidates
     :param normalized: Set it to true if X_input_names and X_source_names are L2 normalized
-    :return: candidate_names_scores: an nd.array of shape (number of input names, num_candidates, 2)
-            (Z=0 has names, Z=1 has scores)
+    :param n_jobs: set to the number of cpu's to use; defaults to all
+    :return: candidate_names_scores: an nd.array of [input names, candidates (names, scores)]
     """
-    step_size = 1000
-    chunks = []
-    for ix in range(0, input_names_X.shape[0], step_size):
+    batches = []
+    for ix in range(0, input_names_X.shape[0], batch_size):
         # chunks needs to be a list of tuples; otherwise mpire passes each row in the chunk as a separate parameter
-        chunks.append((input_names_X[ix : ix + step_size], ix))
-    with WorkerPool(shared_objects=(source_names, source_names_X, num_candidates, metric, normalized)) as pool:
-        candidate_names_scores = pool.map(_get_candidate_scores, chunks, progress_bar=True)
+        batches.append((input_names_X[ix:ix + batch_size], ix))
+    if n_jobs == 1:
+        results = []
+        for batch, ix in batches:
+            results.append(_get_candidate_scores((source_names, source_names_X, num_candidates, metric, normalized), batch, ix))
+        candidate_names_scores = np.vstack(results)
+    else:
+        with WorkerPool(shared_objects=(source_names, source_names_X, num_candidates, metric, normalized), n_jobs=n_jobs) as pool:
+            candidate_names_scores = pool.map(_get_candidate_scores, batches, progress_bar=True)
     return candidate_names_scores
 
 
@@ -194,27 +199,6 @@ def add_padding(name: str) -> str:
     return constants.BEGIN_TOKEN + name + constants.END_TOKEN
 
 
-def convert_names_to_model_inputs(
-    names: Union[list, np.ndarray], char_to_idx_map: dict, max_name_length: int
-) -> (torch.Tensor, torch.Tensor):
-    """
-    Return a torch tensor of names, where each name has been converted to a sequence of ids and the ids have been one-hot encoded.
-    Also return the tensor where the names have been converted to a sequence of ids but before the ids have been one-hot encoded.
-    :param names: list of names to encode
-    :param char_to_idx_map: map characters to ids
-    :param max_name_length: maximum name length
-    :return: 3D tensor, where axis 0 is names, axis 1 is character position and axis 2 is the one-hot encoding (a..z).
-             also a 2D tensor of names->ids
-    """
-    X_targets = convert_names_to_ids(names, char_to_idx_map, max_name_length)
-    X_one_hot = one_hot_encode(X_targets, constants.VOCAB_SIZE + 1)
-
-    X_inputs = check_convert_tensor(X_one_hot)
-    X_targets = check_convert_tensor(X_targets)
-
-    return X_inputs, X_targets
-
-
 def check_convert_tensor(X: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
     """
     Ensure X is a torch tensor
@@ -224,27 +208,38 @@ def check_convert_tensor(X: Union[np.ndarray, torch.Tensor]) -> torch.Tensor:
     return X
 
 
-def get_k_near_negatives(name: str, positive_names: Set[str], all_names: Set[str], k: int) -> List[str]:
-    """
-    Return the k names from all_names that are most-similar to the input name and are not in positive_names
-    :param name: input name
-    :param positive_names: names that are matches to the specified name
-    :param all_names: all candidate names
-    :param k: how many names to return
-    :return: list of names
-    """
-    # TODO re-think this function?
-    similarities = {}
-    for cand_name in all_names:
-        if cand_name != name and cand_name not in positive_names:
-            dist = jellyfish.levenshtein_distance(name, cand_name)
-            similarity = 1 - (dist / max(len(name), len(cand_name)))
-            similarities[cand_name] = similarity
-    return heapq.nlargest(k, similarities.keys(), lambda n: similarities[n])
-
-
 def normalize(s: str) -> str:
     """
     Remove diacritics, lowercase, and strip
     """
     return unidecode.unidecode(s).lower().strip()
+
+
+class ArrayDataLoader:
+    """
+    Data loader for chunking an array
+    """
+
+    def __init__(
+        self,
+        arr,
+        batch_size,
+        shuffle=False,
+    ):
+        self.arr = arr
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+
+    def __iter__(self):
+        if self.shuffle:
+            np.random.shuffle(self.arr)
+        self.ix = 0
+        return self
+
+    def __next__(self):
+        if self.ix >= self.arr.shape[0]:
+            raise StopIteration
+        # return a batch
+        batch = self.arr[self.ix : self.ix + self.batch_size]
+        self.ix += self.batch_size
+        return batch
