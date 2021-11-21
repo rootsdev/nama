@@ -3,7 +3,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 
 from src.models.utils import get_best_matches
 
@@ -78,9 +77,6 @@ class GloveModel(nn.Module):
 
         nn.init.xavier_normal_(self.wi.weight.data)
         nn.init.xavier_normal_(self.wj.weight.data)
-        # TODO set biases to zero?
-        # self.bi.weight.data.zero_()
-        # self.bj.weight.data.zero_()
         nn.init.xavier_normal_(self.bi.weight.data)
         nn.init.xavier_normal_(self.bj.weight.data)
 
@@ -117,6 +113,8 @@ def train_glove(model, dataset, n_epochs=100, batch_size=64, x_max=100, alpha=0.
     n_batches = int(len(dataset._xij) / batch_size)
     loss_values = list()
 
+    model = model.to(device)
+
     for e in range(1, n_epochs+1):
         batch_num = 0
 
@@ -127,7 +125,6 @@ def train_glove(model, dataset, n_epochs=100, batch_size=64, x_max=100, alpha=0.
             outputs = model(i_idx, j_idx)
             weights_x = _weight_func(x_ij, x_max, alpha).to(device=device)
             loss = _wmse_loss(weights_x, outputs, torch.log(x_ij)).to(device=device)
-            # TODO regularize?
 
             loss.backward()
             optimizer.step()

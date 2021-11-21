@@ -14,7 +14,8 @@ from src.models.utils import get_best_matches, add_padding, remove_padding
 
 
 def get_near_negatives(
-    input_names: list, weighted_actual_names_list: List[List[Tuple[str, float, int]]], candidate_names, k=50
+    input_names: list, weighted_actual_names_list: List[List[Tuple[str, float, int]]], candidate_names,
+    k: int=50, lower_threshold: float=0.7, upper_threshold: float=0.9
 ):
     """
     Return near-negatives for all input names
@@ -22,6 +23,8 @@ def get_near_negatives(
     :param weighted_actual_names_list: list of lists of [name2, weight, ?] for each name1 in input_names
     :param candidate_names: other names that we can pull near-negatives from
     :param k: how many near-negatives to return
+    :param lower_threshold: names below this similarity threshold will not be considered
+    :param upper_threshold: names above this similarity threshold will not be considered
     :return: dict of name -> list of near-negative names
     """
     all_names_unpadded = set([remove_padding(name) for name in (input_names + candidate_names.tolist())])
@@ -30,28 +33,34 @@ def get_near_negatives(
         positive_names = set(remove_padding(n) for n, _, _ in positives)
         near_negatives[name] = [
             add_padding(n)
-            for n in _get_k_near_negatives(remove_padding(name), positive_names, all_names_unpadded, k)
+            for n in _get_k_near_negatives(remove_padding(name), positive_names, all_names_unpadded,
+                                           k=k, lower_threshold=lower_threshold, upper_threshold=upper_threshold)
         ]
     return near_negatives
 
 
-def _get_k_near_negatives(name: str, positive_names: Set[str], all_names: Set[str], k: int) -> List[str]:
+def _get_k_near_negatives(name: str, positive_names: Set[str], all_names: Set[str],
+                          k: int, lower_threshold: float, upper_threshold: float) -> List[str]:
     """
     Return the k names from all_names that are most-similar to the input name and are not in positive_names
     :param name: input name
     :param positive_names: names that are matches to the specified name
     :param all_names: all candidate names
     :param k: how many names to return
+    :param lower_threshold: names below this similarity threshold will not be considered
+    :param upper_threshold: names above this similarity threshold will not be considered
     :return: list of names
     """
     # TODO re-think this function?
-    similarities = {}
+    similarities = []
     for cand_name in all_names:
         if cand_name != name and cand_name not in positive_names:
             dist = jellyfish.levenshtein_distance(name, cand_name)
             similarity = 1 - (dist / max(len(name), len(cand_name)))
-            similarities[cand_name] = similarity
-    return heapq.nlargest(k, similarities.keys(), lambda n: similarities[n])
+            if lower_threshold <= similarity <= upper_threshold:
+                similarities.append(cand_name)
+    # return heapq.nlargest(k, similarities.keys(), lambda n: similarities[n])
+    return random.sample(similarities, k) if len(similarities) > k else similarities
 
 
 class TripletDataLoader:
