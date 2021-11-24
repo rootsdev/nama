@@ -42,9 +42,10 @@ def get_embeddings(model, names: Union[list, np.ndarray], batch_size: int = 1024
 
 def get_embeddings_from_X(model, X: np.ndarray, batch_size: int = 1024) -> np.ndarray:
     results = []
-    for batch in ArrayDataLoader(X, batch_size):
-        batch = check_convert_tensor(batch)
-        results.append(model(batch, just_encoder=True).detach().cpu().numpy())
+    with torch.inference_mode():
+        for batch in ArrayDataLoader(X, batch_size):
+            batch = check_convert_tensor(batch)
+            results.append(model(batch, just_encoder=True).detach().cpu().numpy())
     return np.vstack(results)
 
 

@@ -9,7 +9,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-from src.models.utils import get_best_matches
+from src.models.utils import get_best_matches, ArrayDataLoader
+from src.models.swivel_encoder import convert_names_to_model_inputs
 
 
 class SwivelDataset:
@@ -207,18 +208,51 @@ def train_swivel(model, dataset, n_steps=100, submatrix_size=1024, lr=0.05, devi
     return loss_values
 
 
-def get_swivel_embeddings(model, vocab, names, add_context=True):
-    # get indexes
-    # TODO eventually we'll need to deal with out-of-vocab names better
-    ixs = [vocab.get(name, 0) for name in names]
+def _get_embeddings_batched(model, inputs: torch.Tensor, batch_size: int = 1024) -> np.ndarray:
+    results = []
+    with torch.inference_mode():
+        for batch in ArrayDataLoader(inputs, batch_size):
+            # batch = check_convert_tensor(batch)
+            results.append(model(batch).detach().cpu().numpy())
+    return np.vstack(results)
 
-    emb = model.wi.weight.data[ixs].cpu().numpy()
+
+def get_swivel_embeddings(model, vocab, names, add_context=True, encoder_model=None):
+    # get indexes of in-vocab and out-of-vocab names
+    names = np.asarray(names)
+    in_vocab_name_ixs = [ix for ix, name in enumerate(names) if name in vocab]
+    out_of_vocab_name_ixs = [ix for ix, name in enumerate(names) if name not in vocab]
+    if len(out_of_vocab_name_ixs) > 0 and encoder_model is None:
+        raise Exception(f"{len(out_of_vocab_name_ixs)} missing names and no encoder_model")
+    embed_dim = 0
+
+    # get embeddings for in-vocab names from model
+    in_vocab_names = names[in_vocab_name_ixs]
+    vocab_ixs = [vocab.get(name, 0) for name in in_vocab_names]
+    in_vocab_embs = model.wi.weight.data[vocab_ixs].cpu().numpy()
     if add_context:
-        emb += model.wj.weight.data[ixs].cpu().numpy()
-    return emb
+        in_vocab_embs += model.wj.weight.data[vocab_ixs].cpu().numpy()
+    if embed_dim == 0 and len(in_vocab_embs) > 0:
+        embed_dim = in_vocab_embs.shape[1]
+
+    # get embeddings for out-of-vocab names from encoder_model
+    out_of_vocab_names = names[out_of_vocab_name_ixs]
+    out_of_vocab_inputs = convert_names_to_model_inputs(out_of_vocab_names)
+    with torch.inference_mode():
+        out_of_vocab_embs = _get_embeddings_batched(encoder_model, out_of_vocab_inputs)
+    if embed_dim == 0 and len(out_of_vocab_embs) > 0:
+        embed_dim = out_of_vocab_embs.shape[1]
+
+    # merge them in the right order
+    embeddings = np.zeros((len(names), embed_dim))
+    embeddings[in_vocab_name_ixs] = in_vocab_embs
+    embeddings[out_of_vocab_name_ixs] = out_of_vocab_embs
+
+    return embeddings
 
 
-def get_best_swivel_matches(model, vocab, input_names, candidate_names, k, batch_size=512, add_context=True, n_jobs=None):
+def get_best_swivel_matches(model, vocab, input_names, candidate_names, k, batch_size=512, add_context=True,
+                            encoder_model=None, n_jobs=None):
     """
     Get the best k matches for the input names from the candidate names using the glove model
     :param model: glove model
@@ -228,16 +262,16 @@ def get_best_swivel_matches(model, vocab, input_names, candidate_names, k, batch
     :param k: number of matches to get
     :param batch_size: batch size
     :param add_context: add the context vector if true
+    :param encoder_model: used to encode out of vocab names
     :param n_jobs: number of jobs to use in parallel
     :return:
     """
     # Get embeddings for input names
-    input_name_embeddings = get_swivel_embeddings(model, vocab, input_names, add_context=add_context)
+    input_name_embeddings = get_swivel_embeddings(model, vocab, input_names, add_context=add_context, encoder_model=encoder_model)
 
     # Get embeddings for candidate names
-    candidate_name_embeddings = get_swivel_embeddings(model, vocab, candidate_names, add_context=add_context)
+    candidate_name_embeddings = get_swivel_embeddings(model, vocab, candidate_names, add_context=add_context, encoder_model=encoder_model)
 
-    # consider euclidean???
     return get_best_matches(
         input_name_embeddings, candidate_name_embeddings, candidate_names,
         num_candidates=k, metric="cosine", batch_size=batch_size, n_jobs=n_jobs

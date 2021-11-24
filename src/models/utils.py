@@ -112,9 +112,9 @@ def convert_names_to_ids(names: np.ndarray, char_to_idx_map: Dict[str, int], max
         return [char_to_idx_map[c] for c in name]
 
     names_ids = list(map(convert_name, names))
-    name_ids_chopped = [chop(name_id, max_len) for name_id in names_ids]
-    name_ids_padded = [post_pad_to_length(name_id, max_len) for name_id in name_ids_chopped]
-    return np.array(name_ids_padded)
+    names_ids_chopped = [chop(name_ids, max_len) for name_ids in names_ids]
+    names_ids_padded = [post_pad_to_length(name_ids, max_len) for name_ids in names_ids_chopped]
+    return np.array(names_ids_padded)
 
 
 def convert_ids_to_names(names_ids: np.ndarray, idx_to_char_map: Dict[int, str]) -> np.array:
@@ -142,7 +142,7 @@ def post_pad_to_length(input_ids: Union[list, np.ndarray], length: int) -> np.ar
     num_tokens = len(input_ids)
     if num_tokens < length:
         pad_width = length - num_tokens
-        return np.pad(input_ids, (0, pad_width), "constant", constant_values=0)
+        return np.pad(input_ids, (0, pad_width), "constant", constant_values=0)  # 0 is the pad id
     return np.array(input_ids)
 
 
@@ -240,6 +240,6 @@ class ArrayDataLoader:
         if self.ix >= self.arr.shape[0]:
             raise StopIteration
         # return a batch
-        batch = self.arr[self.ix : self.ix + self.batch_size]
+        batch = self.arr[self.ix: self.ix + self.batch_size]
         self.ix += self.batch_size
         return batch
