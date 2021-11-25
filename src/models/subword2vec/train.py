@@ -13,15 +13,23 @@ class SubwordModel:
     def train(self,
               train_file_path: str,
               model: str = 'skipgram',
-              epoch: int = 10,
+              lr: float = 0.05,
+              dim: int = 50,
               ws: int = 5,
+              epoch: int = 10,
               neg: int = 5,
+              minn: int = 3,
+              maxn: int = 6,
               min_count: int = 1):
         self.model = fasttext.train_unsupervised(train_file_path,
                                                  model=model,
+                                                 lr=lr,
+                                                 dim=dim,
                                                  epoch=epoch,
                                                  ws=ws,
                                                  neg=neg,
+                                                 minn=minn,
+                                                 maxn=maxn,
                                                  minCount=min_count)
 
         # Skip first value since it's a special token

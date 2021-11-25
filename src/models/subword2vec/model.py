@@ -1,3 +1,5 @@
+from typing import Tuple, List
+
 import faiss
 import numpy as np
 
@@ -30,17 +32,55 @@ class NNPredictor:
 
         return faiss_index
 
-    def predict(self, token: str, k: int = 10):
-        if token in self.tokens:
-            token_id = int(self.token_to_id_map[token])
-            token_embedding = self.faiss_index.reconstruct(token_id).reshape(1, -1)
-        else:
-            token_embedding = self.model.get_word_vector(token).reshape(1, -1)
+    def predict_batch(self, tokens: List[str], k: int = 10) -> Tuple[List[List[str]], List[List[float]]]:
+        # Get token embeddings
+        token_embeddings = self.get_embeddings_batch(tokens)
+
+        # Unit normalize embeddings
+        if self.normalize:
+            faiss.normalize_L2(token_embeddings)
+
+        scores_batch, nearest_neighbours_ids_batch = self.faiss_index.search(token_embeddings,
+                                                                             k=k)
+        # Convert int ids to str tokens
+        nearest_neighbour_tokens_batch = []
+        for nn_ids in nearest_neighbours_ids_batch:
+            nn_tokens = self._convert_ids_to_tokens(nn_ids.flatten().tolist())
+            nearest_neighbour_tokens_batch.append(nn_tokens)
+
+        return nearest_neighbour_tokens_batch, scores_batch
+
+    def predict(self, token: str, k: int = 10) -> Tuple[List[str], List[float]]:
+        # Get token embedding
+        token_embedding = self.get_embedding(token)
+
+        # Reshape to match expected input shape for Faiss
+        token_embedding = token_embedding.reshape(1, -1)
+
+        # Unit normalize embedding
+        if self.normalize:
+            faiss.normalize_L2(token_embedding)
 
         scores, nearest_neighbours_ids = self.faiss_index.search(token_embedding, k=k)
-        nearest_neighbour_tokens = self._convert_ids_to_tokens(nearest_neighbours_ids)
+        nearest_neighbour_tokens = self._convert_ids_to_tokens(nearest_neighbours_ids.flatten().tolist())
 
-        return nearest_neighbour_tokens, scores
+        return nearest_neighbour_tokens, scores.tolist()
 
-    def _convert_ids_to_tokens(self, token_ids):
+    def get_embeddings_batch(self, tokens: List[str]):
+        token_embeddings = []
+        for token in tokens:
+            token_embeddings.append(self.get_embedding(token))
+
+        return np.array(token_embeddings)
+
+    def get_embedding(self, token: str):
+        if token in self.tokens:
+            token_id = int(self.token_to_id_map[token])
+            token_embedding = self.faiss_index.reconstruct(token_id)
+        else:
+            token_embedding = self.model.get_word_vector(token)
+
+        return token_embedding
+
+    def _convert_ids_to_tokens(self, token_ids: List[int]):
         return list(map(self.id_to_token_map.get, token_ids))
