@@ -166,7 +166,7 @@ class SwivelModel(nn.Module):
         return l2_loss + sigmoid_loss
 
 
-def train_swivel(model, dataset, n_steps=100, submatrix_size=1024, lr=0.05, device="cpu", optimizer=None):
+def train_swivel(model, dataset, n_steps=100, submatrix_size=1024, lr=0.05, device="cpu", optimizer=None, verbose=True):
     model = model.to(device)
     if optimizer is None:
         optimizer = optim.Adagrad(model.parameters(), lr=lr)
@@ -178,7 +178,8 @@ def train_swivel(model, dataset, n_steps=100, submatrix_size=1024, lr=0.05, devi
 
     if n_steps > 0:
         # get a random sequence of shards
-        shard_positions = [(random.randrange(0, n_shards_row), random.randrange(0, n_shards_col)) for _ in range(0, n_steps)]
+        shard_positions = [(random.randrange(0, n_shards_row), random.randrange(0, n_shards_col))
+                           for _ in range(0, n_steps)]
     else:
         # visit each shard once in random order
         shard_positions = [(row, col) for row in range(0, n_shards_row) for col in range(0, n_shards_col)]
@@ -201,7 +202,7 @@ def train_swivel(model, dataset, n_steps=100, submatrix_size=1024, lr=0.05, devi
         optimizer.step()
         loss_values.append(loss.item())
 
-        if step % 100 == 0:
+        if verbose and step % 100 == 0:
             print("Step: {}/{} \t Loss: {}".format(step, len(shard_positions), np.mean(loss_values[-10:])))
 
     return loss_values
@@ -218,7 +219,15 @@ def get_swivel_embeddings(model, vocab, names, add_context=True):
     return emb
 
 
-def get_best_swivel_matches(model, vocab, input_names, candidate_names, k, batch_size=512, add_context=True, n_jobs=None):
+def get_best_swivel_matches(model,
+                            vocab,
+                            input_names,
+                            candidate_names,
+                            k,
+                            batch_size=512,
+                            add_context=True,
+                            n_jobs=None,
+                            progress_bar=True):
     """
     Get the best k matches for the input names from the candidate names using the glove model
     :param model: glove model
@@ -229,6 +238,7 @@ def get_best_swivel_matches(model, vocab, input_names, candidate_names, k, batch
     :param batch_size: batch size
     :param add_context: add the context vector if true
     :param n_jobs: number of jobs to use in parallel
+    :param progress_bar: display progress bar
     :return:
     """
     # Get embeddings for input names
@@ -240,6 +250,7 @@ def get_best_swivel_matches(model, vocab, input_names, candidate_names, k, batch
     # consider euclidean???
     return get_best_matches(
         input_name_embeddings, candidate_name_embeddings, candidate_names,
-        num_candidates=k, metric="cosine", batch_size=batch_size, n_jobs=n_jobs
+        num_candidates=k, metric="cosine", batch_size=batch_size, n_jobs=n_jobs,
+        progress_bar=progress_bar
     )
 
