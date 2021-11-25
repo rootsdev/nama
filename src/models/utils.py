@@ -42,6 +42,7 @@ def get_best_matches(
     normalized: bool = False,
     batch_size: int = 512,
     n_jobs: int = None,
+    progress_bar: bool = True,
 ) -> np.ndarray:
     """
     A function that computes scores between the input names and the source names using the given metric type
@@ -55,6 +56,7 @@ def get_best_matches(
     :param metric: Type of metric to use for fetching candidates
     :param normalized: Set it to true if X_input_names and X_source_names are L2 normalized
     :param n_jobs: set to the number of cpu's to use; defaults to all
+    :param progress_bar: display progress bar
     :return: candidate_names_scores: an nd.array of [input names, candidates (names, scores)]
     """
     batches = []
@@ -68,7 +70,7 @@ def get_best_matches(
         candidate_names_scores = np.vstack(results)
     else:
         with WorkerPool(shared_objects=(source_names, source_names_X, num_candidates, metric, normalized), n_jobs=n_jobs) as pool:
-            candidate_names_scores = pool.map(_get_candidate_scores, batches, progress_bar=True)
+            candidate_names_scores = pool.map(_get_candidate_scores, batches, progress_bar=progress_bar)
     return candidate_names_scores
 
 
