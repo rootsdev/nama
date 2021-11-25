@@ -72,6 +72,8 @@ class SwivelEncoderModel(nn.Module):
             torch.randn(self.n_layers * self.n_directions, batch_size, self.n_hidden_units).to(device=self.device),  # initial cell state
         )
 
+        # TODO instead of packing, consider truncating to the longest length
+        # TODO when packing, outputs must be re-ordered to match the original inputs; then re-consider packing
         # sort batch by sequence length
         if self.pack:
             X_lengths = torch.count_nonzero(X, dim=1).to(device="cpu").type(torch.int64)
@@ -104,7 +106,7 @@ class SwivelEncoderModel(nn.Module):
         return output
 
 
-def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=64, lr=0.01, use_adam_opt=False, use_mse_loss=False):
+def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=64, lr=0.01, use_adam_opt=False, use_mse_loss=False, silent=False, optimizer=None):
     """
     Train the SwivelEncoder
     :param model: SwivelEncoder model
@@ -115,10 +117,13 @@ def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=6
     :param lr: learning rate
     :param use_adam_opt: if True, use Adam optimizer; otherwise use Adagrad optimizer
     :param use_mse_loss: if True, use mean squared error (euclidean distance) loss; otherwise use cosine similarity loss
+    :param silent: don't print anything
+    :param optimizer: passed-in optimizer to use
     """
     model = model.to(model.device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr) if use_adam_opt else torch.optim.Adagrad(model.parameters(), lr=lr)
+    if optimizer is None:
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr) if use_adam_opt else torch.optim.Adagrad(model.parameters(), lr=lr)
     loss_fn = torch.nn.MSELoss() if use_mse_loss else torch.nn.CosineEmbeddingLoss()
 
     dataset_train = torch.utils.data.TensorDataset(X_train, X_targets)
@@ -142,6 +147,7 @@ def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=6
             optimizer.step()
 
             # Update loss value on progress bar
-            losses.append(loss.item())
-            if batch_num % 1000 == 0:
-                print("Epoch: {}/{} \t Batch: {} \t Loss: {}".format(e, num_epochs, batch_num, np.mean(losses[-2:])))
+            if not silent:
+                losses.append(loss.item())
+                if batch_num % 1000 == 0:
+                    print("Epoch: {}/{} \t Batch: {} \t Loss: {}".format(e, num_epochs, batch_num, np.mean(losses[-100:])))

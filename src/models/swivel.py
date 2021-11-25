@@ -220,33 +220,38 @@ def _get_embeddings_batched(model, inputs: torch.Tensor, batch_size: int = 1024)
 def get_swivel_embeddings(model, vocab, names, add_context=True, encoder_model=None):
     # get indexes of in-vocab and out-of-vocab names
     names = np.asarray(names)
-    in_vocab_name_ixs = [ix for ix, name in enumerate(names) if name in vocab]
-    out_of_vocab_name_ixs = [ix for ix, name in enumerate(names) if name not in vocab]
+    # if model is None, all names are out-of-vocab, and we use encoder_model to generate the embeddings
+    in_vocab_name_ixs = [ix for ix, name in enumerate(names) if name in vocab and model is not None]
+    out_of_vocab_name_ixs = [ix for ix, name in enumerate(names) if name not in vocab or model is None]
     if len(out_of_vocab_name_ixs) > 0 and encoder_model is None:
         raise Exception(f"{len(out_of_vocab_name_ixs)} missing names and no encoder_model")
     embed_dim = 0
 
     # get embeddings for in-vocab names from model
-    in_vocab_names = names[in_vocab_name_ixs]
-    vocab_ixs = [vocab.get(name, 0) for name in in_vocab_names]
-    in_vocab_embs = model.wi.weight.data[vocab_ixs].cpu().numpy()
-    if add_context:
-        in_vocab_embs += model.wj.weight.data[vocab_ixs].cpu().numpy()
-    if embed_dim == 0 and len(in_vocab_embs) > 0:
-        embed_dim = in_vocab_embs.shape[1]
+    if len(in_vocab_name_ixs) > 0:
+        in_vocab_names = names[in_vocab_name_ixs]
+        vocab_ixs = [vocab.get(name, 0) for name in in_vocab_names]
+        in_vocab_embs = model.wi.weight.data[vocab_ixs].cpu().numpy()
+        if add_context:
+            in_vocab_embs += model.wj.weight.data[vocab_ixs].cpu().numpy()
+        if embed_dim == 0 and len(in_vocab_embs) > 0:
+            embed_dim = in_vocab_embs.shape[1]
 
     # get embeddings for out-of-vocab names from encoder_model
-    out_of_vocab_names = names[out_of_vocab_name_ixs]
-    out_of_vocab_inputs = convert_names_to_model_inputs(out_of_vocab_names)
-    with torch.inference_mode():
-        out_of_vocab_embs = _get_embeddings_batched(encoder_model, out_of_vocab_inputs)
-    if embed_dim == 0 and len(out_of_vocab_embs) > 0:
-        embed_dim = out_of_vocab_embs.shape[1]
+    if len(out_of_vocab_name_ixs) > 0:
+        out_of_vocab_names = names[out_of_vocab_name_ixs]
+        out_of_vocab_inputs = convert_names_to_model_inputs(out_of_vocab_names)
+        with torch.inference_mode():
+            out_of_vocab_embs = _get_embeddings_batched(encoder_model, out_of_vocab_inputs)
+        if embed_dim == 0 and len(out_of_vocab_embs) > 0:
+            embed_dim = out_of_vocab_embs.shape[1]
 
     # merge them in the right order
     embeddings = np.zeros((len(names), embed_dim))
-    embeddings[in_vocab_name_ixs] = in_vocab_embs
-    embeddings[out_of_vocab_name_ixs] = out_of_vocab_embs
+    if len(in_vocab_name_ixs) > 0:
+        embeddings[in_vocab_name_ixs] = in_vocab_embs
+    if len(out_of_vocab_name_ixs) > 0:
+        embeddings[out_of_vocab_name_ixs] = out_of_vocab_embs
 
     return embeddings
 

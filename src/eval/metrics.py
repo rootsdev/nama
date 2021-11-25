@@ -99,7 +99,12 @@ def weighted_recall_at_threshold(
     :param distances: if True, score must be <= threshold; if False, score must be >= threshold; defaults to False
     """
     matches = _get_matches(candidates, threshold, distances)
-    return sum(weight for name, weight, _ in weighted_actual_names if name in matches)
+    if len(weighted_actual_names) == 0:
+        return 1.0
+    total = sum(weight for name, weight, _ in weighted_actual_names if name in matches)
+    if total > 1.0001:
+        raise Exception("Impossible recall")
+    return total
 
 
 def avg_precision_at_threshold(
