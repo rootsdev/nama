@@ -30,7 +30,7 @@ def _get_candidate_scores(shared, rows, _):
 
     sorted_scores = np.take_along_axis(scores, sorted_scores_idx, axis=1)
     ranked_candidates = source_names[sorted_scores_idx]
-    return np.dstack((ranked_candidates, sorted_scores))
+    return np.dstack((ranked_candidates.astype(object), sorted_scores))
 
 
 def get_best_matches(
