@@ -106,7 +106,7 @@ class SwivelEncoderModel(nn.Module):
         return output
 
 
-def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=64, lr=0.01, use_adam_opt=False, use_mse_loss=False, silent=False, optimizer=None):
+def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=64, lr=0.01, use_adam_opt=False, use_mse_loss=False, verbose=True, optimizer=None):
     """
     Train the SwivelEncoder
     :param model: SwivelEncoder model
@@ -130,7 +130,7 @@ def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=6
     data_loader = torch.utils.data.DataLoader(dataset_train, batch_size=batch_size, shuffle=True)
     losses = list()
 
-    for e in range(1, num_epochs+1):
+    for epoch in range(1, num_epochs+1):
         for batch_num, (train_batch, targets_batch) in enumerate(data_loader):
             # Clear out gradient
             model.zero_grad()
@@ -145,9 +145,10 @@ def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=6
                 loss = loss_fn(x_prime, targets_batch.to(model.device), torch.ones(len(x_prime)).to(device=model.device))
             loss.backward()
             optimizer.step()
+            losses.append(loss.item())
 
             # Update loss value on progress bar
-            if not silent:
-                losses.append(loss.item())
+            if verbose:
                 if batch_num % 1000 == 0:
                     print("Epoch: {}/{} \t Batch: {} \t Loss: {}".format(e, num_epochs, batch_num, np.mean(losses[-100:])))
+    return losses

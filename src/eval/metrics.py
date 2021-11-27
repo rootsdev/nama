@@ -239,13 +239,20 @@ def get_auc(
     precs = []
     recs = []
     prev_r = float("nan")
-    for p, r in zip(precisions, recalls):
-        if math.isclose(r, prev_r):
+    for ix, (p, r) in enumerate(zip(precisions, recalls)):
+        if ix > 0 and (r < prev_r or math.isclose(r, prev_r, abs_tol=1e-4)):
             continue
         precs.append(p)
         recs.append(r)
         prev_r = r
-    return scipy.integrate.simpson(precs, recs)
+    if len(precs) < 2:
+        return 0
+    auc = scipy.integrate.simpson(precs, recs)
+    if auc < 0.0 or auc > 1.0001:
+        precisions = ",".join([f"{i:.9f}" for i in precs])
+        recalls = ",".join([f"{i:.9f}" for i in recs])
+        raise Exception(f"Invalid AUC precs={precisions} recs={recalls}")
+    return auc
 
 
 def ndcg_k(relevant: list, relevancy_scores: list, predicted: list, k: int = None) -> float:
