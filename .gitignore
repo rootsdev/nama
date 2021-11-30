@@ -98,3 +98,4 @@ target/
 
 # wandb
 /notebooks/wandb/
+.wandb-api-key

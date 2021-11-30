@@ -106,7 +106,8 @@ class SwivelEncoderModel(nn.Module):
         return output
 
 
-def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=64, lr=0.01, use_adam_opt=False, use_mse_loss=False, verbose=True, optimizer=None):
+def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=64, lr=0.01,
+                         use_adam_opt=False, use_mse_loss=False, verbose=True, optimizer=None):
     """
     Train the SwivelEncoder
     :param model: SwivelEncoder model
@@ -117,13 +118,15 @@ def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=6
     :param lr: learning rate
     :param use_adam_opt: if True, use Adam optimizer; otherwise use Adagrad optimizer
     :param use_mse_loss: if True, use mean squared error (euclidean distance) loss; otherwise use cosine similarity loss
-    :param silent: don't print anything
+    :param verbose:print average loss every so often
     :param optimizer: passed-in optimizer to use
     """
-    model = model.to(model.device)
+    model = model.to(device=model.device)
 
     if optimizer is None:
-        optimizer = torch.optim.Adam(model.parameters(), lr=lr) if use_adam_opt else torch.optim.Adagrad(model.parameters(), lr=lr)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr) \
+            if use_adam_opt \
+            else torch.optim.Adagrad(model.parameters(), lr=lr)
     loss_fn = torch.nn.MSELoss() if use_mse_loss else torch.nn.CosineEmbeddingLoss()
 
     dataset_train = torch.utils.data.TensorDataset(X_train, X_targets)
@@ -136,13 +139,13 @@ def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=6
             model.zero_grad()
 
             # Compute forward pass
-            x_prime = model(train_batch.to(model.device))
+            x_prime = model(train_batch.to(device=model.device))
 
             # Compute loss do the backward pass and update parameters
             if use_mse_loss:
-                loss = loss_fn(x_prime, targets_batch.to(model.device))
+                loss = loss_fn(x_prime, targets_batch.to(device=model.device))
             else:
-                loss = loss_fn(x_prime, targets_batch.to(model.device), torch.ones(len(x_prime)).to(device=model.device))
+                loss = loss_fn(x_prime, targets_batch.to(device=model.device), torch.ones(len(x_prime)).to(device=model.device))
             loss.backward()
             optimizer.step()
             losses.append(loss.item())
@@ -150,5 +153,5 @@ def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=6
             # Update loss value on progress bar
             if verbose:
                 if batch_num % 1000 == 0:
-                    print("Epoch: {}/{} \t Batch: {} \t Loss: {}".format(e, num_epochs, batch_num, np.mean(losses[-100:])))
+                    print("Epoch: {}/{} \t Batch: {} \t Loss: {}".format(epoch, num_epochs, batch_num, np.mean(losses[-100:])))
     return losses

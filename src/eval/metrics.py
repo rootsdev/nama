@@ -247,7 +247,11 @@ def get_auc(
         prev_r = r
     if len(precs) < 2:
         return 0
-    auc = scipy.integrate.simpson(precs, recs)
+    # switch to cumulative_trapezoid because simpson over the following unexpectedly returns 1.746
+    # precs = [1.000000000, 1.000000000, 0.000212482]
+    # recs = [0.000000000, 0.104290700, 0.105383575]
+    # auc = scipy.integrate.simpson(precs, recs)
+    auc = scipy.integrate.cumulative_trapezoid(precs, recs, initial=0)[-1]
     if auc < 0.0 or auc > 1.0001:
         precisions = ",".join([f"{i:.9f}" for i in precs])
         recalls = ",".join([f"{i:.9f}" for i in recs])
