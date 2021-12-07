@@ -310,7 +310,6 @@ POSS_NOISE_WORDS = {
     "general",
     "governor",
     "judge",
-    "junior",
     "king",
     "know",
     "lady",
@@ -343,7 +342,7 @@ POSS_NOISE_WORDS = {
     "twin",
 }
 
-POSS_SURNAME_NOISE_WORDS = {"ui"}
+POSS_SURNAME_NOISE_WORDS = {"junior", "ui"}
 
 PATRONYMIC_PATTERNS = [
     {

@@ -1,15 +1,81 @@
+from collections import Counter
+from typing import List, Tuple, Set
+
 import numpy as np
 import pandas as pd
-from typing import List, Tuple
+from sklearn import model_selection
 
 from src.models.utils import add_padding
 
 
-def load_train_test(paths: List[str]) -> List[Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]]:
-    """
-    Load and process train and test datasets
-    """
+def load_datasets(paths: List[str]) -> List[Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]]:
     return [_load(pd.read_csv(path)) for path in paths]
+
+
+def filter_dataset(input_names: List[str],
+                    weighted_actual_names: List[List[Tuple[str, float, int]]],
+                    selected_names: Set[str]
+                    ) -> Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]:
+    """
+    Filter dataset to have only selected_names, reweighting actual names
+    """
+    input_names_filtered = []
+    weighted_actual_names_filtered = []
+    candidate_names_filtered = set()
+    for input_name, wans in zip(input_names, weighted_actual_names):
+        wans = [(name, 0.0, freq) for name, _, freq in wans if input_name in selected_names and name in selected_names]
+        if len(wans) > 0:
+            # re-weight
+            total_freq = sum([freq for _, _, freq in wans])
+            if total_freq > 0:  # if total_freq is 0, then the only candidate_name is the input name, so we can skip
+                wans = [(name, freq / total_freq, freq) for name, _, freq in wans]
+                input_names_filtered.append(input_name)
+                weighted_actual_names_filtered.append(wans)
+                candidate_names_filtered.update([name for name, _, _ in wans])
+    candidate_names_filtered = np.array([name for name in candidate_names_filtered])
+    return input_names_filtered, weighted_actual_names_filtered, candidate_names_filtered
+
+
+def train_test_split(input_names: List[str],
+                     weighted_actual_names: List[List[Tuple[str, float, int]]],
+                     candidate_names: np.array,
+                     train_size=None,
+                     test_size=None,
+                     ) -> List[Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]]:
+    """
+    Split input_names, weighted_actual_names, and candidate names into two subsets:
+    one where the input names and candidate names are both in the train subset, and
+    one where the input names and candidate names are both in the test subset set
+    """
+    all_names = list(set(input_names).union(set(candidate_names)))
+    train_names, test_names = model_selection.train_test_split(all_names, train_size=train_size, test_size=test_size)
+    train_names = set(train_names)
+    test_names = set(test_names)
+
+    input_names_train, weighted_actual_names_train, candidate_names_train = \
+        filter_dataset(input_names, weighted_actual_names, train_names)
+    input_names_test, weighted_actual_names_test, candidate_names_test = \
+        filter_dataset(input_names, weighted_actual_names, test_names)
+    return [(input_names_train, weighted_actual_names_train, candidate_names_train),
+            (input_names_test, weighted_actual_names_test, candidate_names_test)]
+
+
+def select_frequent_k(input_names: List[str],
+                      weighted_actual_names: List[List[Tuple[str, float, int]]],
+                      candidate_names: np.array,
+                      k,
+                      ) -> Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]:
+    """
+    Filter dataset to have only the most-frequent k names
+    """
+    name_counter = Counter()
+    for input_name, wan in zip(input_names, weighted_actual_names):
+        for name, _, co_occurrence in wan:
+            name_counter[input_name] += co_occurrence
+            name_counter[name] += co_occurrence
+    selected_names = set([name for name, _ in name_counter.most_common(k)])
+
+    return filter_dataset(input_names, weighted_actual_names, selected_names)
 
 
 def add_weighted_count(df: pd.DataFrame) -> pd.DataFrame:

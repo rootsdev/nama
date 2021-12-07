@@ -53,8 +53,6 @@ class GloveDataset:
         self._j_idx = torch.LongTensor(self._j_idx).to(device=device)
         self._xij = torch.FloatTensor(self._xij).to(device=device)
 
-        print("Vocabulary length: {}".format(self._vocab_len))
-
     def get_vocab(self):
         return self._word2id
 

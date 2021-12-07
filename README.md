@@ -6,7 +6,7 @@ Using deep learning to find similar personal names
     make create_environment
     conda activate nama
     make requirements
-    make sync_data_from_s3
+    conda install -c conda-forge faiss-cpu
 
 ### If you want to develop, also do the following
     nbstripout --install   # automatically strip notebook output before commit
@@ -39,8 +39,6 @@ Using deep learning to find similar personal names
 ### locations
 * raw data can be found at s3://familysearch-names/raw 
 * large interim data files can be found at s3://familysearch-names/interim
-* data files in /data can be downloaded from s3://nama-data using `make sync_data_from_s3`
-* new data files in /data can be uploaded to s3://nama-data using `make sync_data_to_s3`
 
 ### descriptions
 * tree_hr_given-similar.csv + tree-hr-surname-similar.csv - likely-similar name pairs

@@ -174,7 +174,7 @@ def precision_weighted_recall_at_threshold(
     max_threshold: float = 1.0,
     step=0.01,
     distances=False,
-    n_jobs=-1,
+    n_jobs=1,
     progress_bar=False,
 ) -> (List[float], List[float]):
     """
@@ -198,7 +198,7 @@ def precision_weighted_recall_at_threshold(
         return precision, recall, threshold
 
     thresholds = [i for i in np.arange(min_threshold, max_threshold, step)]
-    if n_jobs < 0:
+    if n_jobs == 1:
         precisions_recalls = [
             get_precision_recall((weighted_actual_names_list, candidates_list, distances), threshold)
             for threshold in thresholds

@@ -58,8 +58,6 @@ class SwivelDataset:
         # calculate matrix log sum
         self._matrix_log_sum = math.log(row_sums.sum() + 1)
 
-        print("Vocabulary length: {}".format(self._vocab_len))
-
     def get_vocab(self):
         return self._word2id
 
@@ -203,8 +201,8 @@ def train_swivel(model, dataset, n_steps=100, submatrix_size=1024, lr=0.05, devi
         optimizer.step()
         loss_values.append(loss.item())
 
-        if verbose and step % 100 == 0:
-            print("Step: {}/{} \t Loss: {}".format(step, len(shard_positions), np.mean(loss_values[-10:])))
+        if verbose and step % 10000 == 0:
+            print("Step: {}/{} \t Loss: {}".format(step, len(shard_positions), np.mean(loss_values[-1000:])))
 
     return loss_values
 

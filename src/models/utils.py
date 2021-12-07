@@ -57,7 +57,7 @@ def get_best_matches(
     :param normalized: Set it to true if X_input_names and X_source_names are L2 normalized
     :param n_jobs: set to the number of cpu's to use; defaults to all
     :param progress_bar: display progress bar
-    :return: candidate_names_scores: an nd.array of [input names, candidates (names, scores)]
+    :return: candidate_names_scores: an nd.array of [input names, candidates, (names, scores)]
     """
     batches = []
     for ix in range(0, input_names_X.shape[0], batch_size):
