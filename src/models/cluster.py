@@ -3,15 +3,15 @@ from collections import defaultdict
 from mpire import WorkerPool
 import numpy as np
 import pandas as pd
-from scipy.sparse import csr_matrix
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity, pairwise_distances
+from sklearn.preprocessing import normalize
 from tqdm import tqdm
 
 from src.models.utils import remove_padding
 
 
-def get_scores(embeddings, threshold=0.4, batch_size=256):
+def get_sorted_similarities(embeddings, threshold=0.4, batch_size=256):
     rows = []
     cols = []
     scores = []
@@ -24,11 +24,10 @@ def get_scores(embeddings, threshold=0.4, batch_size=256):
         batch_rows += ix
         rows.extend(batch_rows)
         cols.extend(batch_cols)
-    scores_sparse = csr_matrix((scores, (rows, cols)), shape=(len(embeddings), len(embeddings)), dtype=np.float32)
     score_sorted_ixs = np.array(scores).argsort()[::-1]
-    sorted_scores = np.column_stack((rows, cols, scores))[score_sorted_ixs]
-    sorted_scores = sorted_scores[sorted_scores[:, 0] < sorted_scores[:, 1]]
-    return scores_sparse, sorted_scores
+    sorted_similarities = np.column_stack((rows, cols, scores))[score_sorted_ixs]
+    sorted_similarities = sorted_similarities[sorted_similarities[:, 0] < sorted_similarities[:, 1]]
+    return sorted_similarities
 
 
 def generate_closures(sorted_scores, closure_threshold):
@@ -87,27 +86,28 @@ def _dist_metric(scores):
     return distance
 
 
-def _generate_clusters(shared, closure_id, enclosed_ids, closure_scores):
+def _generate_clusters(shared, closure_id, enclosed_ids, closure_embeddings):
     cluster_threshold, linkage = shared
-    # reshape data
-    X = np.arange(len(enclosed_ids)).reshape(-1, 1).astype("int32")
-    # precompute distances
-    distances = pairwise_distances(X, metric=_dist_metric(closure_scores))
+    affinity = "cosine"
+    if linkage == "ward":
+        affinity = "euclidean"
+        closure_embeddings = normalize(closure_embeddings)
+        cluster_threshold = cluster_threshold / 10.0  # ward threshold is a different scale
     agg = AgglomerativeClustering(n_clusters=None, distance_threshold=1 - cluster_threshold,
-                                  affinity="precomputed", linkage=linkage)
-    cluster_assignments = agg.fit_predict(distances)
+                                  affinity=affinity, linkage=linkage)
+    cluster_assignments = agg.fit_predict(closure_embeddings)
     return closure_id, enclosed_ids, cluster_assignments
 
 
-def generate_clusters(closure2ids, clustered_scores_sparse, clustered_names, cluster_threshold, cluster_linkage,
+def generate_clusters(closure2ids, cluster_embeddings, cluster_threshold, cluster_linkage,
                       verbose=True, n_jobs=None):
     id2cluster = {}
     # calculate parameters
     params_list = []
     for closure_id, ids in closure2ids.items():
         enclosed_ids = list(ids)
-        closure_scores = clustered_scores_sparse[enclosed_ids][:, enclosed_ids]
-        params_list.append((closure_id, enclosed_ids, closure_scores))
+        closure_embeddings = cluster_embeddings[enclosed_ids]
+        params_list.append((closure_id, enclosed_ids, closure_embeddings))
     if n_jobs == 1:
         results_list = []
         if verbose:
@@ -125,21 +125,21 @@ def generate_clusters(closure2ids, clustered_scores_sparse, clustered_names, clu
             id2cluster[_id] = f"{closure_id}_{cluster_id}"
 
     # assign clustered_names not in any cluster to their own (singleton) cluster
-    for _id in range(0, len(clustered_names)):
+    for _id in range(0, len(cluster_embeddings)):
         if _id not in id2cluster:
             id2cluster[_id] = f"{_id}"
 
     return id2cluster
 
 
-def assign_names_to_clusters(all_names, all_embeddings, id2cluster, clustered_embeddings, batch_size=256, k=1, verbose=True):
+def assign_names_to_clusters(all_names, all_embeddings, id2cluster, cluster_embeddings, batch_size=256, k=1, verbose=True):
     """
     Find the closest clustered name for each name in all_names and assign the name to the cluster for
     the closest clustered name
-    :param all_names: all names
+    :param all_names: all names to assign
     :param all_embeddings: embeddings for names to assign
     :param id2cluster: clustered name id to cluster id
-    :param clustered_embeddings: embeddings for clustered names
+    :param cluster_embeddings: embeddings for clustered names
     :param batch_size:
     :param k:
     :return:
@@ -151,7 +151,7 @@ def assign_names_to_clusters(all_names, all_embeddings, id2cluster, clustered_em
         ixs = tqdm(ixs)
     for ix in ixs:
         batch = all_embeddings[ix:ix + batch_size]
-        scores = cosine_similarity(batch, clustered_embeddings)
+        scores = cosine_similarity(batch, cluster_embeddings)
         # closest_clustered_ids = np.argmax(scores, axis=1)
         closest_clustered_ids = np.argpartition(scores, -k)[:, -k:]
         for _id, closest_ids in zip(list(range(ix, ix + batch_size)), closest_clustered_ids):

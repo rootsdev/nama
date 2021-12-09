@@ -3,9 +3,10 @@ from typing import Union
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import pack_padded_sequence
 
 from src.data import constants
+from src.data.filesystem import fopen
 from src.models.utils import convert_names_to_ids, check_convert_tensor, build_token_idx_maps
 
 MAX_NAME_LENGTH = 30
@@ -107,7 +108,7 @@ class SwivelEncoderModel(nn.Module):
 
 
 def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=64, lr=0.01,
-                         use_adam_opt=False, use_mse_loss=False, verbose=True, optimizer=None):
+                         use_adam_opt=False, use_mse_loss=False, verbose=True, optimizer=None, checkpoint_path=None):
     """
     Train the SwivelEncoder
     :param model: SwivelEncoder model
@@ -120,6 +121,7 @@ def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=6
     :param use_mse_loss: if True, use mean squared error (euclidean distance) loss; otherwise use cosine similarity loss
     :param verbose:print average loss every so often
     :param optimizer: passed-in optimizer to use
+    :param checkpoint_path: if set, save models to this path after each epoch
     """
     model = model.to(device=model.device)
 
@@ -154,4 +156,8 @@ def train_swivel_encoder(model, X_train, X_targets, num_epochs=100, batch_size=6
             if verbose:
                 if batch_num % 1000 == 0:
                     print("Epoch: {}/{} \t Batch: {} \t Loss: {}".format(epoch, num_epochs, batch_num, np.mean(losses[-100:])))
+
+        if checkpoint_path:
+            torch.save(model.state_dict(), fopen(f"{checkpoint_path}.{epoch}", "wb"))
+
     return losses

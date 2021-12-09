@@ -1,25 +1,31 @@
 #!/bin/bash
 
 IP=$1
+USER=$2
 
 if [ -z "$IP" ]
 then
   echo "Install this repo on a remote machine"
-  echo "Usage: remote-install.sh <IP address>"
+  echo "Usage: remote-install.sh <IP address> [user]"
   exit 1
 fi
 
+if [ -z "$USER" ]
+then
+  USER="ubuntu"
+fi
+
 echo "Copying files to nama directory"
-rsync -a -e "ssh -l ubuntu" --exclude=/data --exclude=/data-raw --exclude=/src.egg-info . $IP:nama
-scp ~/.netrc.wandb ubuntu@$IP:.netrc
+rsync -a -e "ssh -l $USER" --exclude=/data --exclude=/data-raw --exclude=/src.egg-info . $IP:nama
+scp ~/.netrc.wandb $USER@$IP:.netrc
 
 echo "Installing requirements into nama conda environment and copying data dir from s3"
-ssh ubuntu@$IP <<ENDSSH
+ssh $USER@$IP <<ENDSSH
+# sudo apt-get install make
 cd nama
 make create_environment
 source activate nama
 make requirements
-make sync_data_from_s3
 python -m ipykernel install --user --name nama
 nbstripout --install
 ENDSSH

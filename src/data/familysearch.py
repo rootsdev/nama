@@ -40,6 +40,7 @@ def train_test_split_on_frequency(
     for name1, name2, freq in zip(df["name1"], df["name2"], df["co_occurrence"]):
         name_counter[name1] += freq
         name_counter[name2] += freq
+    print("total names", len(name_counter))
 
     # train names are the most-frequent threshold names
     k = int(len(name_counter) * threshold)

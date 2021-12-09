@@ -220,8 +220,8 @@ def get_swivel_embeddings(model, vocab, names, add_context=True, encoder_model=N
     # get indexes of in-vocab and out-of-vocab names
     names = np.asarray(names)
     # if model is None, all names are out-of-vocab, and we use encoder_model to generate the embeddings
-    in_vocab_name_ixs = [ix for ix, name in enumerate(names) if name in vocab and model is not None]
-    out_of_vocab_name_ixs = [ix for ix, name in enumerate(names) if name not in vocab or model is None]
+    in_vocab_name_ixs = [ix for ix, name in enumerate(names) if model is not None and name in vocab]
+    out_of_vocab_name_ixs = [ix for ix, name in enumerate(names) if model is None or name not in vocab]
     if len(out_of_vocab_name_ixs) > 0 and encoder_model is None:
         missing_names = " ".join(names[out_of_vocab_name_ixs])
         raise Exception(f"{missing_names} not in vocab and no encoder_model")
