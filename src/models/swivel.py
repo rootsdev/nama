@@ -1,4 +1,5 @@
 from collections import Counter
+from datetime import datetime
 import math
 import random
 
@@ -202,7 +203,7 @@ def train_swivel(model, dataset, n_steps=100, submatrix_size=1024, lr=0.05, devi
         loss_values.append(loss.item())
 
         if verbose and step % 10000 == 0:
-            print("Step: {}/{} \t Loss: {}".format(step, len(shard_positions), np.mean(loss_values[-1000:])))
+            print("Step: {}/{} \t Loss: {} - {}".format(step, len(shard_positions), np.mean(loss_values[-1000:]), datetime.now()))
 
     return loss_values
 

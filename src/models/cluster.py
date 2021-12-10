@@ -1,10 +1,11 @@
 from collections import defaultdict
 
+import hdbscan
 from mpire import WorkerPool
 import numpy as np
 import pandas as pd
-from sklearn.cluster import AgglomerativeClustering
-from sklearn.metrics.pairwise import cosine_similarity, pairwise_distances
+from sklearn.cluster import AgglomerativeClustering, OPTICS, cluster_optics_dbscan
+from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 from tqdm import tqdm
 
@@ -86,7 +87,7 @@ def _dist_metric(scores):
     return distance
 
 
-def _generate_clusters(shared, closure_id, enclosed_ids, closure_embeddings):
+def _generate_agglomerative_clusters(shared, closure_id, enclosed_ids, closure_embeddings):
     cluster_threshold, linkage = shared
     affinity = "cosine"
     if linkage == "ward":
@@ -99,7 +100,55 @@ def _generate_clusters(shared, closure_id, enclosed_ids, closure_embeddings):
     return closure_id, enclosed_ids, cluster_assignments
 
 
-def generate_clusters(closure2ids, cluster_embeddings, cluster_threshold, cluster_linkage,
+def _convert_neg_to_unique(labels):
+    max_cluster = max(labels)
+    results = []
+    for label in labels:
+        if label < 0:
+            max_cluster += 1
+            label = max_cluster
+        results.append(label)
+    return results
+
+
+def _generate_optics_clusters(shared, closure_id, enclosed_ids, closure_embeddings):
+    min_samples, eps, max_eps, xi, n_jobs = shared
+    clust = OPTICS(min_samples=min_samples,
+                   xi=xi,
+                   max_eps=max_eps,
+                   metric="cosine",
+                   n_jobs=n_jobs,
+                   )
+    clust.fit(closure_embeddings)
+
+    labels = cluster_optics_dbscan(
+        reachability=clust.reachability_,
+        core_distances=clust.core_distances_,
+        ordering=clust.ordering_,
+        eps=eps,
+    )
+    return closure_id, enclosed_ids, _convert_neg_to_unique(labels)
+
+
+def _generate_hdbscan_clusters(shared, closure_id, enclosed_ids, closure_embeddings):
+    min_samples, eps, selection_method, min_cluster_size = shared
+    clust = hdbscan.HDBSCAN(min_samples=min_samples,
+                            cluster_selection_epsilon=eps,
+                            cluster_selection_method=selection_method,
+                            min_cluster_size=min_cluster_size,
+                            metric="euclidean",
+                            )
+    closure_embeddings = normalize(closure_embeddings)
+    clust.fit(closure_embeddings)
+    return closure_id, enclosed_ids, _convert_neg_to_unique(clust.labels_)
+
+
+def generate_clusters(closure2ids, cluster_embeddings,
+                      cluster_algo="agglomerative",
+                      cluster_linkage="average", cluster_threshold=0.5,  # for agglomerative
+                      min_samples=2, eps=0.5,                            # for optics or hdbscan
+                      max_eps=1.0, xi=0.05,                              # for optics
+                      selection_method="eom", min_cluster_size=2,        # for hdbscan
                       verbose=True, n_jobs=None):
     id2cluster = {}
     # calculate parameters
@@ -108,15 +157,25 @@ def generate_clusters(closure2ids, cluster_embeddings, cluster_threshold, cluste
         enclosed_ids = list(ids)
         closure_embeddings = cluster_embeddings[enclosed_ids]
         params_list.append((closure_id, enclosed_ids, closure_embeddings))
-    if n_jobs == 1:
+    if n_jobs == 1 or cluster_algo == "optics":
         results_list = []
         if verbose:
             params_list = tqdm(params_list)
         for params in params_list:
-            results_list.append(_generate_clusters((cluster_threshold, cluster_linkage), *params))
+            if cluster_algo == "agglomerative":
+                results = _generate_agglomerative_clusters((cluster_threshold, cluster_linkage), *params)
+            elif cluster_algo == "optics":
+                results = _generate_optics_clusters((min_samples, eps, max_eps, xi, n_jobs), *params)
+            else:
+                results = _generate_hdbscan_clusters((min_samples, eps, selection_method, min_cluster_size), *params)
+            results_list.append(results)
     else:
-        with WorkerPool(shared_objects=(cluster_threshold, cluster_linkage), n_jobs=n_jobs) as pool:
-            results_list = pool.map_unordered(_generate_clusters, params_list, progress_bar=verbose)
+        if cluster_algo == "agglomerative":
+            with WorkerPool(shared_objects=(cluster_threshold, cluster_linkage), n_jobs=n_jobs) as pool:
+                results_list = pool.map_unordered(_generate_agglomerative_clusters, params_list, progress_bar=verbose)
+        else:
+            with WorkerPool(shared_objects=(min_samples, eps, selection_method, min_cluster_size), n_jobs=n_jobs) as pool:
+                results_list = pool.map_unordered(_generate_hdbscan_clusters, params_list, progress_bar=verbose)
 
     # process results
     for results in results_list:
