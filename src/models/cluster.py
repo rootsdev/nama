@@ -1,18 +1,20 @@
 from collections import defaultdict
+import gzip
+import json
 
 import hdbscan
 from mpire import WorkerPool
 import numpy as np
-import pandas as pd
 from sklearn.cluster import AgglomerativeClustering, OPTICS, cluster_optics_dbscan
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 from tqdm import tqdm
 
-from src.models.utils import remove_padding
+from src.data.filesystem import fopen
+from src.models.utils import remove_padding, add_padding
 
 
-def get_sorted_similarities(embeddings, threshold=0.4, batch_size=256):
+def get_sorted_similarities(embeddings, threshold=0.4, batch_size=1024):
     rows = []
     cols = []
     scores = []
@@ -112,8 +114,13 @@ def _convert_neg_to_unique(labels):
 
 
 def _generate_optics_clusters(shared, closure_id, enclosed_ids, closure_embeddings):
-    min_samples, eps, max_eps, xi, n_jobs = shared
+    min_samples, eps, max_eps, cluster_method, xi, n_jobs = shared
+    run_dbscan = False
+    if cluster_method == "xi+dbscan":
+        cluster_method = "xi"
+        run_dbscan = True
     clust = OPTICS(min_samples=min_samples,
+                   cluster_method=cluster_method,
                    xi=xi,
                    max_eps=max_eps,
                    metric="cosine",
@@ -121,12 +128,16 @@ def _generate_optics_clusters(shared, closure_id, enclosed_ids, closure_embeddin
                    )
     clust.fit(closure_embeddings)
 
-    labels = cluster_optics_dbscan(
-        reachability=clust.reachability_,
-        core_distances=clust.core_distances_,
-        ordering=clust.ordering_,
-        eps=eps,
-    )
+    if run_dbscan:
+        labels = cluster_optics_dbscan(
+            reachability=clust.reachability_,
+            core_distances=clust.core_distances_,
+            ordering=clust.ordering_,
+            eps=eps,
+        )
+    else:
+        labels = clust.labels_
+        
     return closure_id, enclosed_ids, _convert_neg_to_unique(labels)
 
 
@@ -147,7 +158,7 @@ def generate_clusters(closure2ids, cluster_embeddings,
                       cluster_algo="agglomerative",
                       cluster_linkage="average", cluster_threshold=0.5,  # for agglomerative
                       min_samples=2, eps=0.5,                            # for optics or hdbscan
-                      max_eps=1.0, xi=0.05,                              # for optics
+                      max_eps=1.0, cluster_method="xi+dbscan", xi=0.05,  # for optics
                       selection_method="eom", min_cluster_size=2,        # for hdbscan
                       verbose=True, n_jobs=None):
     id2cluster = {}
@@ -165,7 +176,7 @@ def generate_clusters(closure2ids, cluster_embeddings,
             if cluster_algo == "agglomerative":
                 results = _generate_agglomerative_clusters((cluster_threshold, cluster_linkage), *params)
             elif cluster_algo == "optics":
-                results = _generate_optics_clusters((min_samples, eps, max_eps, xi, n_jobs), *params)
+                results = _generate_optics_clusters((min_samples, eps, max_eps, cluster_method, xi, n_jobs), *params)
             else:
                 results = _generate_hdbscan_clusters((min_samples, eps, selection_method, min_cluster_size), *params)
             results_list.append(results)
@@ -191,19 +202,19 @@ def generate_clusters(closure2ids, cluster_embeddings,
     return id2cluster
 
 
-def assign_names_to_clusters(all_names, all_embeddings, id2cluster, cluster_embeddings, batch_size=256, k=1, verbose=True):
+def get_clusters(all_names, all_embeddings, id2cluster, cluster_embeddings, max_clusters=5, batch_size=1024, k=100, verbose=True):
     """
-    Find the closest clustered name for each name in all_names and assign the name to the cluster for
-    the closest clustered name
+    For each name in all_names, find the closest clustered names and return a list of (cluster_id, cluster_score) tuples
     :param all_names: all names to assign
     :param all_embeddings: embeddings for names to assign
     :param id2cluster: clustered name id to cluster id
     :param cluster_embeddings: embeddings for clustered names
     :param batch_size:
     :param k:
-    :return:
+    :return: for each name in all_names, a list of up to max_clusters (cluster_id, cluster_score) tuples
+    and also a dictionary mapping cluster id to the names for which that cluster is closest (that are assigned to the cluster)
     """
-    name2cluster = {}
+    name2clusters = defaultdict(list)
     cluster2names = defaultdict(list)
     ixs = range(0, len(all_embeddings), batch_size)
     if verbose:
@@ -211,37 +222,66 @@ def assign_names_to_clusters(all_names, all_embeddings, id2cluster, cluster_embe
     for ix in ixs:
         batch = all_embeddings[ix:ix + batch_size]
         scores = cosine_similarity(batch, cluster_embeddings)
-        # closest_clustered_ids = np.argmax(scores, axis=1)
-        closest_clustered_ids = np.argpartition(scores, -k)[:, -k:]
-        for _id, closest_ids in zip(list(range(ix, ix + batch_size)), closest_clustered_ids):
-            name = all_names[_id]
-            cluster_ids = [id2cluster[closest_clustered_id] for closest_clustered_id in closest_ids]
-            # get the mode (most-common) cluster id
-            cluster_id = max(set(cluster_ids), key=cluster_ids.count)
-            name2cluster[name] = cluster_id
-            cluster2names[cluster_id].append(name)
-    return name2cluster, cluster2names
+        # ids = np.argsort(-scores)[:, :k]  # slow
+        # get the top k
+        ids = np.argpartition(-scores, k)[:, :k]
+        scores = scores[np.arange(len(batch))[:, None], ids]
+        # then sort the top k
+        ids_sort = np.argsort(-scores)
+        ids = ids[np.arange(len(batch))[:, None], ids_sort]
+        scores = scores[np.arange(len(batch))[:, None], ids_sort]
+        for name_id, _ids, _scores in zip(list(range(ix, ix + len(batch))), ids, scores):
+            name = all_names[name_id]
+            found_clusters = set()
+            for _id, _score in zip(_ids, _scores):
+                cluster_id = id2cluster[_id]
+                if cluster_id not in found_clusters:
+                    if len(found_clusters) == 0:
+                        cluster2names[cluster_id].append(name)
+                    found_clusters.add(cluster_id)
+                    name2clusters[name].append((cluster_id, _score))
+                    if len(found_clusters) == max_clusters:
+                        break
+    return name2clusters, cluster2names
 
 
-def get_best_cluster_matches(name2cluster, cluster2names, input_names, k=256):
+def get_best_cluster_matches(name2clusters, cluster2names, input_names, k=256):
     # return [input names, candidates, (names, scores)]
     all_cluster_names = []
     all_scores = []
     for input_name in input_names:
-        cluster_id = name2cluster[input_name]
-        cluster_names = np.array(cluster2names[cluster_id][0:k], dtype="object")
-        scores = np.ones(min(k, len(cluster_names)), dtype="int8")
+        cluster_names = []
+        cluster_scores = []
+        for cluster_id, cluster_score in name2clusters[input_name]:
+            for name in cluster2names[cluster_id]:
+                if len(cluster_names) == k:
+                    continue
+                cluster_names.append(name)
+                cluster_scores.append(cluster_score)
         if len(cluster_names) < k:
-            cluster_names = np.pad(cluster_names, (0, k-len(cluster_names)), constant_values="")
-            scores = np.pad(scores, (0, k-len(scores)), constant_values=0)
-        all_cluster_names.append(cluster_names)
-        all_scores.append(scores)
+            pad_len = k - len(cluster_names)
+            cluster_names += [""] * pad_len
+            cluster_scores += [0.0] * pad_len
+        all_cluster_names.append(np.array(cluster_names, dtype=object))
+        all_scores.append(np.array(cluster_scores, dtype=np.float32))
     all_cluster_names = np.vstack(all_cluster_names)
     all_scores = np.vstack(all_scores)
     return np.dstack((all_cluster_names, all_scores))
 
 
-def write_clusters(path, clustered_names, id2cluster):
-    name2cluster = {remove_padding(clustered_names[id]): cluster_id for id, cluster_id in id2cluster.items()}
-    df = pd.DataFrame.from_dict(name2cluster, orient="index", columns=["cluster_id"])
-    df.to_csv(path, index_label="name")
+def write_clusters(path, name2clusters):
+    # remove padding and convert scores to floats so they can be written as json
+    name2clusters = {remove_padding(name): [(cluster[0], float(cluster[1])) for cluster in clusters]
+                     for name, clusters in name2clusters.items()}
+    json_str = json.dumps(name2clusters, indent=0) + "\n"
+    json_bytes = json_str.encode("utf-8")
+    with gzip.open(fopen(path, "wb"), "wb") as f:
+        f.write(json_bytes)
+
+
+def read_clusters(path):
+    with gzip.open(fopen(path, "rb"), "rb") as f:
+        json_bytes = f.read()
+    json_str = json_bytes.decode("utf-8")
+    name2clusters = json.loads(json_str)
+    return {add_padding(name): clusters for name, clusters in name2clusters.items()}

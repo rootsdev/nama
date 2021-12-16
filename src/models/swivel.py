@@ -1,5 +1,7 @@
 from collections import Counter
 from datetime import datetime
+import gzip
+import json
 import math
 import random
 
@@ -10,7 +12,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-from src.models.utils import get_best_matches, ArrayDataLoader
+from src.data.filesystem import fopen
+from src.models.utils import get_best_matches, ArrayDataLoader, add_padding, remove_padding, check_convert_tensor
 from src.models.swivel_encoder import convert_names_to_model_inputs
 
 
@@ -96,7 +99,7 @@ class SwivelModel(nn.Module):
     """
     Adapted from https://github.com/src-d/tensorflow-swivel/blob/master/swivel.py
     """
-    def __init__(self, num_embeddings, embedding_dim, confidence_base=0.1, confidence_scale=0.25, confidence_exponent=0.5):
+    def __init__(self, num_embeddings, embedding_dim: int=100, confidence_base=0.1, confidence_scale=0.25, confidence_exponent=0.5):
         super().__init__()
         self.confidence_base = confidence_base
         self.confidence_scale = confidence_scale
@@ -212,8 +215,10 @@ def _get_embeddings_batched(model, inputs: torch.Tensor, batch_size: int = 1024)
     results = []
     with torch.inference_mode():
         for batch in ArrayDataLoader(inputs, batch_size):
-            # batch = check_convert_tensor(batch)
-            results.append(model(batch).detach().cpu().numpy())
+            batch = check_convert_tensor(batch)
+            result = model(batch)
+            result = result.detach().cpu().numpy()
+            results.append(result)
     return np.vstack(results)
 
 
@@ -292,3 +297,22 @@ def get_best_swivel_matches(model,
         num_candidates=k, metric="cosine", batch_size=batch_size, n_jobs=n_jobs,
         progress_bar=progress_bar
     )
+
+
+def write_swivel_embeddings(path, names, embeddings):
+    name_embeddings = {remove_padding(name): embedding.tolist() for name, embedding in zip(names, embeddings)}
+    json_str = json.dumps(name_embeddings, indent=0) + "\n"
+    json_bytes = json_str.encode("utf-8")
+    with gzip.open(fopen(path, "wb"), "wb") as f:
+        f.write(json_bytes)
+
+
+def read_swivel_embeddings(path):
+    with gzip.open(fopen(path, "rb"), "rb") as f:
+        json_bytes = f.read()
+    json_str = json_bytes.decode("utf-8")
+    name_embeddings = json.loads(json_str)
+    names = [add_padding(name) for name in name_embeddings.keys()]
+    embeddings = np.array(list(name_embeddings.values()))
+    return names, embeddings
+

@@ -60,20 +60,26 @@ def train_test_split(input_names: List[str],
             (input_names_test, weighted_actual_names_test, candidate_names_test)]
 
 
-def select_frequent_k(input_names: List[str],
-                      weighted_actual_names: List[List[Tuple[str, float, int]]],
-                      candidate_names: np.array,
-                      k,
-                      ) -> Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]:
-    """
-    Filter dataset to have only the most-frequent k names
-    """
+def frequent_k_names(input_names, weighted_actual_names, k, input_names_only=False):
     name_counter = Counter()
     for input_name, wan in zip(input_names, weighted_actual_names):
         for name, _, co_occurrence in wan:
             name_counter[input_name] += co_occurrence
-            name_counter[name] += co_occurrence
-    selected_names = set([name for name, _ in name_counter.most_common(k)])
+            if not input_names_only:
+                name_counter[name] += co_occurrence
+    return [name for name, _ in name_counter.most_common(k)]
+
+
+def select_frequent_k(input_names: List[str],
+                      weighted_actual_names: List[List[Tuple[str, float, int]]],
+                      candidate_names: np.array,
+                      k,
+                      input_names_only=False,
+                      ) -> Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]:
+    """
+    Filter dataset to have only the most-frequent k names
+    """
+    selected_names = set(frequent_k_names(input_names, weighted_actual_names, k, input_names_only))
 
     return filter_dataset(input_names, weighted_actual_names, selected_names)
 

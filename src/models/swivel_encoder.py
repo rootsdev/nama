@@ -28,7 +28,8 @@ def convert_names_to_model_inputs(names: Union[list, np.ndarray]) -> torch.Tenso
 
 
 class SwivelEncoderModel(nn.Module):
-    def __init__(self, n_layers: int, char_embed_dim: int, n_hidden_units: int, output_dim: int, bidirectional=False, pack=False, device="cpu"):
+    def __init__(self, n_layers: int=2, char_embed_dim: int=32, n_hidden_units: int=400, output_dim: int=100,
+                 bidirectional=True, pack=True, device="cpu"):
         super().__init__()
         self.n_layers = n_layers
         self.n_hidden_units = n_hidden_units
@@ -73,12 +74,11 @@ class SwivelEncoderModel(nn.Module):
             torch.randn(self.n_layers * self.n_directions, batch_size, self.n_hidden_units).to(device=self.device),  # initial cell state
         )
 
-        # TODO instead of packing, consider truncating to the longest length
-        # TODO when packing, outputs must be re-ordered to match the original inputs; then re-consider packing
         # sort batch by sequence length
         if self.pack:
             X_lengths = torch.count_nonzero(X, dim=1).to(device="cpu").type(torch.int64)
             ixs = torch.argsort(X_lengths, descending=True)
+            inverse_ixs = torch.argsort(ixs)
             X = X[ixs]
             X_lengths = X_lengths[ixs]
 
@@ -100,6 +100,10 @@ class SwivelEncoderModel(nn.Module):
             last_hidden = hidden[-1, :, :]
         else:
             last_hidden = torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1)
+
+        # put last_hidden back in original order
+        if self.pack:
+            last_hidden = last_hidden[inverse_ixs]
 
         # run through linear layer
         output = self.linear(last_hidden)  # compute the model using the hidden state of the last layer
