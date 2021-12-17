@@ -5,6 +5,7 @@ import json
 import hdbscan
 from mpire import WorkerPool
 import numpy as np
+import pandas as pd
 from sklearn.cluster import AgglomerativeClustering, OPTICS, cluster_optics_dbscan
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
@@ -269,8 +270,52 @@ def get_best_cluster_matches(name2clusters, cluster2names, input_names, k=256):
     return np.dstack((all_cluster_names, all_scores))
 
 
-def write_clusters(path, name2clusters):
-    # remove padding and convert scores to floats so they can be written as json
+def merge_name2clusters(name2clusters):
+    # merge clusters from all (variant) entries in name2clusters and return a list of (cluster, max score)
+    cluster2score = {}
+    for cluster_scores in name2clusters.values():
+        for cluster_id, score in cluster_scores:
+            if cluster_id not in cluster2score or cluster2score[cluster_id] < score:
+                cluster2score[cluster_id] = score
+    result = list(cluster2score.items())
+    result.sort(key=lambda it: it[1], reverse=True)
+    return result
+
+
+def _get_most_frequent_name(names, name2freq):
+    freq_name = None
+    max_freq = 0
+    for name in names:
+        if name in name2freq and (freq_name is None or name2freq[name] > max_freq):
+            freq_name = name
+            max_freq = name2freq[name]
+    if freq_name is None:
+        freq_name = names[0]
+    return freq_name
+
+
+def prettify_cluster_names(cluster_names, id2cluster, pref_name2freq):
+    cluster2names = defaultdict(list)
+    for name_id, cluster_id in id2cluster.items():
+        cluster2names[cluster_id].append(cluster_names[name_id])
+    cluster2pretty = {}
+    for cluster_id, names in cluster2names.items():
+        cluster2pretty[cluster_id] = remove_padding(_get_most_frequent_name(names, pref_name2freq)).upper()
+    return {name_id: cluster2pretty[cluster_id] for name_id, cluster_id in id2cluster.items()}
+
+
+def write_clusters(path, cluster_names, id2cluster):
+    df = pd.DataFrame([{"name": remove_padding(name), "cluster": id2cluster[ix]} for ix, name in enumerate(cluster_names)])
+    df.to_csv(path, index=False)
+
+
+def read_clusters(path):
+    df = pd.read_csv(path, na_filter=False)
+    return {add_padding(name): cluster for name, cluster in zip(df["name"], df["cluster"])}
+
+
+def write_cluster_scores(path, name2clusters):
+    # write all (cluster_id, score)
     name2clusters = {remove_padding(name): [(cluster[0], float(cluster[1])) for cluster in clusters]
                      for name, clusters in name2clusters.items()}
     json_str = json.dumps(name2clusters, indent=0) + "\n"
@@ -279,9 +324,10 @@ def write_clusters(path, name2clusters):
         f.write(json_bytes)
 
 
-def read_clusters(path):
+def read_cluster_scores(path):
     with gzip.open(fopen(path, "rb"), "rb") as f:
         json_bytes = f.read()
     json_str = json_bytes.decode("utf-8")
     name2clusters = json.loads(json_str)
-    return {add_padding(name): clusters for name, clusters in name2clusters.items()}
+    return {add_padding(name): [(cluster[0], cluster[1]) for cluster in clusters] for name, clusters in name2clusters.items()}
+

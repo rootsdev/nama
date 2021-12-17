@@ -16,6 +16,9 @@ Using deep learning to find similar personal names
 ### Starting the server and online server documentation 
     uvicorn src.server.server:app --reload
     http://localhost:8000/docs
+#### Using docker
+    docker build -t nama .
+    docker run --rm -d --name nama -p 8080:8080 nama
 
 ### Using Fastec2 for managing remote jupyter notebooks
 * Instructions: https://www.fast.ai/2019/02/15/fastec2/

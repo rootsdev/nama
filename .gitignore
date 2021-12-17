@@ -88,6 +88,8 @@ target/
 #Pytest
 .pytest_cache
 
+# data
+/data/
 
 # scripts generated from notebooks
 /scripts/
