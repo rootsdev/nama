@@ -3,6 +3,7 @@ import gzip
 import json
 
 import hdbscan
+import jellyfish
 from mpire import WorkerPool
 import numpy as np
 import pandas as pd
@@ -13,6 +14,8 @@ from tqdm import tqdm
 
 from src.data.filesystem import fopen
 from src.models.utils import remove_padding, add_padding
+
+NYSIIS_SCORE = 0.6
 
 
 def get_sorted_similarities(embeddings, threshold=0.4, batch_size=1024):
@@ -233,16 +236,28 @@ def get_clusters(all_names, all_embeddings, id2cluster, cluster_embeddings, max_
         scores = scores[np.arange(len(batch))[:, None], ids_sort]
         for name_id, _ids, _scores in zip(list(range(ix, ix + len(batch))), ids, scores):
             name = all_names[name_id]
+            embedding = all_embeddings[name_id]
             found_clusters = set()
-            for _id, _score in zip(_ids, _scores):
-                cluster_id = id2cluster[_id]
-                if cluster_id not in found_clusters:
-                    if len(found_clusters) == 0:
-                        cluster2names[cluster_id].append(name)
-                    found_clusters.add(cluster_id)
-                    name2clusters[name].append((cluster_id, _score))
-                    if len(found_clusters) == max_clusters:
-                        break
+            # look for nearby clusters only if embedding is not zero
+            if np.any(embedding):
+                for _id, _score in zip(_ids, _scores):
+                    cluster_id = id2cluster[_id]
+                    if cluster_id not in found_clusters:
+                        if len(found_clusters) == 0:
+                            cluster2names[cluster_id].append(name)
+                        found_clusters.add(cluster_id)
+                        name2clusters[name].append((cluster_id, _score))
+                        if len(found_clusters) == max_clusters:
+                            break
+            # add nysiis code
+            cluster_id = "_"+jellyfish.nysiis(remove_padding(name)).upper()
+            _score = NYSIIS_SCORE
+            if len(found_clusters) == 0:
+                cluster2names[cluster_id].append(name)
+            name2clusters[name].append((cluster_id, _score))
+            # re-sort
+            name2clusters[name].sort(key=lambda tup: tup[1], reverse=True)
+
     return name2clusters, cluster2names
 
 
@@ -315,19 +330,19 @@ def read_clusters(path):
 
 
 def write_cluster_scores(path, name2clusters):
-    # write all (cluster_id, score)
-    name2clusters = {remove_padding(name): [(cluster[0], float(cluster[1])) for cluster in clusters]
-                     for name, clusters in name2clusters.items()}
-    json_str = json.dumps(name2clusters, indent=0) + "\n"
-    json_bytes = json_str.encode("utf-8")
+    data = ("\n".join([json.dumps({
+        "name": remove_padding(name),
+        "clusters": [(cluster[0], float(cluster[1])) for cluster in clusters],
+    }) for name, clusters in name2clusters.items()])).encode("utf-8")
     with gzip.open(fopen(path, "wb"), "wb") as f:
-        f.write(json_bytes)
+        f.write(data)
 
 
 def read_cluster_scores(path):
     with gzip.open(fopen(path, "rb"), "rb") as f:
-        json_bytes = f.read()
-    json_str = json_bytes.decode("utf-8")
-    name2clusters = json.loads(json_str)
-    return {add_padding(name): [(cluster[0], cluster[1]) for cluster in clusters] for name, clusters in name2clusters.items()}
-
+        data = f.read()
+    name2clusters = {}
+    for line in data.decode("utf-8").split("\n"):
+        name_clusters = json.loads(line)
+        name2clusters[add_padding(name_clusters["name"])] = [(cluster[0], float(cluster[1])) for cluster in name_clusters["clusters"]]
+    return name2clusters

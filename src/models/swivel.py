@@ -229,9 +229,13 @@ def get_swivel_embeddings(model, vocab, names, add_context=True, encoder_model=N
     in_vocab_name_ixs = [ix for ix, name in enumerate(names) if model is not None and name in vocab]
     out_of_vocab_name_ixs = [ix for ix, name in enumerate(names) if model is None or name not in vocab]
     if len(out_of_vocab_name_ixs) > 0 and encoder_model is None:
-        missing_names = " ".join(names[out_of_vocab_name_ixs])
-        raise Exception(f"{missing_names} not in vocab and no encoder_model")
+        if len(in_vocab_name_ixs) > 0:
+            print(f"WARNING {len(out_of_vocab_name_ixs)} names not in vocab and no encoder_model")
+        else:
+            raise Exception(f"{len(out_of_vocab_name_ixs)} names not in vocab and no model or encoder_model")
     embed_dim = 0
+    in_vocab_embs = None
+    out_of_vocab_embs = None
 
     # get embeddings for in-vocab names from model
     if len(in_vocab_name_ixs) > 0:
@@ -244,13 +248,16 @@ def get_swivel_embeddings(model, vocab, names, add_context=True, encoder_model=N
             embed_dim = in_vocab_embs.shape[1]
 
     # get embeddings for out-of-vocab names from encoder_model
-    if len(out_of_vocab_name_ixs) > 0:
+    if len(out_of_vocab_name_ixs) > 0 and encoder_model is not None:
         out_of_vocab_names = names[out_of_vocab_name_ixs]
         out_of_vocab_inputs = convert_names_to_model_inputs(out_of_vocab_names)
         with torch.inference_mode():
             out_of_vocab_embs = _get_embeddings_batched(encoder_model, out_of_vocab_inputs)
         if embed_dim == 0 and len(out_of_vocab_embs) > 0:
             embed_dim = out_of_vocab_embs.shape[1]
+
+    if len(out_of_vocab_name_ixs) > 0 and encoder_model is None:
+        out_of_vocab_embs = np.zeros(shape=(len(out_of_vocab_name_ixs), embed_dim))
 
     # merge them in the right order
     embeddings = np.zeros((len(names), embed_dim))
@@ -300,19 +307,22 @@ def get_best_swivel_matches(model,
 
 
 def write_swivel_embeddings(path, names, embeddings):
-    name_embeddings = {remove_padding(name): embedding.tolist() for name, embedding in zip(names, embeddings)}
-    json_str = json.dumps(name_embeddings, indent=0) + "\n"
-    json_bytes = json_str.encode("utf-8")
+    data = ("\n".join([json.dumps({
+        "name": remove_padding(name),
+        "embedding": embedding.tolist()
+    }) for name, embedding in zip(names, embeddings)])).encode("utf-8")
     with gzip.open(fopen(path, "wb"), "wb") as f:
-        f.write(json_bytes)
+        f.write(data)
 
 
 def read_swivel_embeddings(path):
     with gzip.open(fopen(path, "rb"), "rb") as f:
-        json_bytes = f.read()
-    json_str = json_bytes.decode("utf-8")
-    name_embeddings = json.loads(json_str)
-    names = [add_padding(name) for name in name_embeddings.keys()]
-    embeddings = np.array(list(name_embeddings.values()))
+        data = f.read()
+    names = []
+    embeddings = []
+    for line in data.decode("utf-8").split("\n"):
+        name_embeddings = json.loads(line)
+        names.append(add_padding(name_embeddings["name"]))
+        embeddings.append(np.array(list(name_embeddings["embedding"])))
     return names, embeddings
 

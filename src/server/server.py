@@ -47,10 +47,12 @@ def load_swivel_model(path, vocab_len):
 
 
 def load_encoder_model(path):
-    encoder_model = SwivelEncoderModel(output_dim=embed_dim, device=device)
-    encoder_model.load_state_dict(torch.load(fopen(path, "rb"), map_location=torch.device(device)))
-    encoder_model.to(device)
-    encoder_model.eval()
+    # TODO re-load encoder model when ready
+    encoder_model = None
+    # encoder_model = SwivelEncoderModel(output_dim=embed_dim, device=device)
+    # encoder_model.load_state_dict(torch.load(fopen(path, "rb"), map_location=torch.device(device)))
+    # encoder_model.to(device)
+    # encoder_model.eval()
     return encoder_model
 
 
@@ -172,10 +174,10 @@ def standard(given_surname: GivenSurname, name: str):
                                                names=variants,
                                                encoder_model=encoder_model[given_surname])
     # get clusters
-    name2clusters, _ = get_clusters(variants,
-                                    variant_embeddings,
-                                    clusters[given_surname].clustered_name_cluster_ids,
-                                    clusters[given_surname].clustered_name_embeddings,
+    name2clusters, _ = get_clusters(all_names=variants,
+                                    all_embeddings=variant_embeddings,
+                                    id2cluster=clusters[given_surname].clustered_name_cluster_ids,
+                                    cluster_embeddings=clusters[given_surname].clustered_name_embeddings,
                                     k=1024,
                                     max_clusters=max_search_clusters,
                                     verbose=False,

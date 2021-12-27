@@ -4,6 +4,7 @@ from mpire import WorkerPool
 import numpy as np
 import pandas as pd
 import torch
+from tqdm import tqdm
 import unidecode
 from sklearn.utils.extmath import safe_sparse_dot
 from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
@@ -65,6 +66,8 @@ def get_best_matches(
         batches.append((input_names_X[ix:ix + batch_size], ix))
     if n_jobs == 1:
         results = []
+        if progress_bar:
+            batches = tqdm(batches)
         for batch, ix in batches:
             results.append(_get_candidate_scores((source_names, source_names_X, num_candidates, metric, normalized), batch, ix))
         candidate_names_scores = np.vstack(results)

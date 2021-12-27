@@ -29,7 +29,7 @@ def convert_names_to_model_inputs(names: Union[list, np.ndarray]) -> torch.Tenso
 
 class SwivelEncoderModel(nn.Module):
     def __init__(self, n_layers: int=2, char_embed_dim: int=32, n_hidden_units: int=400, output_dim: int=100,
-                 bidirectional=True, pack=True, device="cpu"):
+                 bidirectional=True, pack=True, dropout=0.0, device="cpu"):
         super().__init__()
         self.n_layers = n_layers
         self.n_hidden_units = n_hidden_units
@@ -52,7 +52,8 @@ class SwivelEncoderModel(nn.Module):
             hidden_size=n_hidden_units,
             num_layers=n_layers,
             batch_first=True,
-            bidirectional=bidirectional
+            bidirectional=bidirectional,
+            dropout=dropout,
         )
 
         self.linear = nn.Linear(n_hidden_units * self.n_directions, output_dim)
