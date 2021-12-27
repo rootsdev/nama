@@ -229,11 +229,8 @@ def get_swivel_embeddings(model, vocab, names, add_context=True, encoder_model=N
     in_vocab_name_ixs = [ix for ix, name in enumerate(names) if model is not None and name in vocab]
     out_of_vocab_name_ixs = [ix for ix, name in enumerate(names) if model is None or name not in vocab]
     if len(out_of_vocab_name_ixs) > 0 and encoder_model is None:
-        if len(in_vocab_name_ixs) > 0:
-            print(f"WARNING {len(out_of_vocab_name_ixs)} names not in vocab and no encoder_model")
-        else:
-            raise Exception(f"{len(out_of_vocab_name_ixs)} names not in vocab and no model or encoder_model")
-    embed_dim = 0
+        print(f"WARNING {len(out_of_vocab_name_ixs)} names not in vocab and no encoder_model")
+    embed_dim = model.wi.weight.data.shape[1]
     in_vocab_embs = None
     out_of_vocab_embs = None
 
@@ -244,8 +241,6 @@ def get_swivel_embeddings(model, vocab, names, add_context=True, encoder_model=N
         in_vocab_embs = model.wi.weight.data[vocab_ixs].cpu().numpy()
         if add_context:
             in_vocab_embs += model.wj.weight.data[vocab_ixs].cpu().numpy()
-        if embed_dim == 0 and len(in_vocab_embs) > 0:
-            embed_dim = in_vocab_embs.shape[1]
 
     # get embeddings for out-of-vocab names from encoder_model
     if len(out_of_vocab_name_ixs) > 0 and encoder_model is not None:
@@ -253,8 +248,6 @@ def get_swivel_embeddings(model, vocab, names, add_context=True, encoder_model=N
         out_of_vocab_inputs = convert_names_to_model_inputs(out_of_vocab_names)
         with torch.inference_mode():
             out_of_vocab_embs = _get_embeddings_batched(encoder_model, out_of_vocab_inputs)
-        if embed_dim == 0 and len(out_of_vocab_embs) > 0:
-            embed_dim = out_of_vocab_embs.shape[1]
 
     if len(out_of_vocab_name_ixs) > 0 and encoder_model is None:
         out_of_vocab_embs = np.zeros(shape=(len(out_of_vocab_name_ixs), embed_dim))
