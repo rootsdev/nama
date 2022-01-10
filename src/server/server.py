@@ -26,8 +26,12 @@ given_swivel_vocab_path = f"{prefix}models/fs-given-swivel-vocab-{given_vocab_si
 given_swivel_model_path = f"{prefix}models/fs-given-swivel-model-{given_vocab_size}-{embed_dim}.pth"
 given_encoder_model_path = f"{prefix}models/fs-given-encoder-model-{given_vocab_size}-{embed_dim}.pth"
 given_clusters_path = f"{prefix}models/fs-given-clusters-{given_vocab_size}-{embed_dim}.csv.gz"
+surname_swivel_vocab_path = f"{prefix}models/fs-surname-swivel-vocab-{surname_vocab_size}.csv"
+surname_swivel_model_path = f"{prefix}models/fs-surname-swivel-model-{surname_vocab_size}-{embed_dim}.pth"
+surname_encoder_model_path = f"{prefix}models/fs-surname-encoder-model-{surname_vocab_size}-{embed_dim}.pth"
+surname_clusters_path = f"{prefix}models/fs-surname-clusters-{surname_vocab_size}-{embed_dim}.csv.gz"
 nicknames_path = "references/givenname_nicknames.csv"
-max_search_clusters = 20
+max_search_clusters = 25
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # force models to the cpu
@@ -78,7 +82,8 @@ start_time = time.time()
 print("..loading vocabs", end="")
 task_start_time = time.time()
 swivel_vocab = {
-    "given": load_swivel_vocab(given_swivel_vocab_path)
+    "given": load_swivel_vocab(given_swivel_vocab_path),
+    "surname": load_swivel_vocab(surname_swivel_vocab_path)
 }
 task_end_time = time.time()
 print(f" {task_end_time - task_start_time} seconds")  # memory=", get_size(swivel_vocab))
@@ -87,6 +92,7 @@ print("..loading swivel models", end="")
 task_start_time = time.time()
 swivel_model = {
     "given": load_swivel_model(given_swivel_model_path, len(swivel_vocab["given"])),
+    "surname": load_swivel_model(surname_swivel_model_path, len(swivel_vocab["surname"])),
 }
 task_end_time = time.time()
 print(f" {task_end_time - task_start_time} seconds")  # memory=", "unavailable")
@@ -95,6 +101,7 @@ print("..loading encoder models", end="")
 task_start_time = time.time()
 encoder_model = {
     "given": load_encoder_model(given_encoder_model_path),
+    "surname": load_encoder_model(surname_encoder_model_path),
 }
 task_end_time = time.time()
 print(f" {task_end_time - task_start_time} seconds")  # memory=", "unavailable")
@@ -103,6 +110,7 @@ print("..loading clusters", end="")
 task_start_time = time.time()
 clusters = {
     "given": load_clusters(given_clusters_path, swivel_vocab["given"], swivel_model["given"], encoder_model["given"]),
+    "surname": load_clusters(surname_clusters_path, swivel_vocab["surname"], swivel_model["surname"], encoder_model["surname"]),
 }
 task_end_time = time.time()
 print(f" {task_end_time - task_start_time} seconds")  # memory=", get_size(clusters))
@@ -114,7 +122,7 @@ task_end_time = time.time()
 print(f" {task_end_time - task_start_time} seconds")  # memory=", get_size(clusters))
 
 end_time = time.time()
-print(f"Ready to serve in {end_time - start_time} seconds...")
+print(f"Ready to serve in {end_time - start_time} seconds...", flush=True)
 app = FastAPI()
 
 

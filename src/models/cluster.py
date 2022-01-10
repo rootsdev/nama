@@ -247,7 +247,7 @@ def get_clusters(all_names, all_embeddings, id2cluster, cluster_embeddings, max_
                             cluster2names[cluster_id].append(name)
                         found_clusters.add(cluster_id)
                         name2clusters[name].append((cluster_id, _score))
-                        if len(found_clusters) == max_clusters:
+                        if len(found_clusters) == max_clusters-1:
                             break
             # add nysiis code
             cluster_id = "_"+jellyfish.nysiis(remove_padding(name)).upper()
