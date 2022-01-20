@@ -9,11 +9,10 @@ from pydantic import BaseModel, validator
 import torch
 
 from src.data.filesystem import fopen
-from src.data.prepare import standardize_patronymics
+from src.data.normalize import normalize, standardize_patronymics
 from src.data.utils import load_nicknames
-from src.models.cluster import read_clusters, get_clusters, merge_name2clusters, read_cluster_scores
+from src.models.cluster import read_clusters, get_clusters, merge_name2clusters
 from src.models.swivel import SwivelModel, get_swivel_embeddings
-from src.models.swivel_encoder import SwivelEncoderModel
 from src.models.utils import add_padding
 
 # run using uvicorn src.server.server:app --reload
@@ -131,6 +130,10 @@ class GivenSurname(str, Enum):
     surname = "surname"
 
 
+class NormalizeResponse(BaseModel):
+    normalized: List[str]
+
+
 class VectorResponse(BaseModel):
     vector: List[float]
 
@@ -148,8 +151,19 @@ class StandardResponse(BaseModel):
     standards: List[ClusterScore]
 
 
+@app.get("/normalize/{given_surname}/{name}", response_model=NormalizeResponse)
+def normalize_api(given_surname: GivenSurname, name: str):
+    """
+    Normalize name
+    """
+    return NormalizeResponse(normalized=normalize(name,
+                                                  is_surname=given_surname == GivenSurname.surname,
+                                                  preserve_wildcards=False,
+                                                  handle_patronymics=False))
+
+
 @app.get("/vector/{given_surname}/{name}", response_model=VectorResponse)
-def vector(given_surname: GivenSurname, name: str):
+def vector_api(given_surname: GivenSurname, name: str):
     """
     Name must be normalized, but this function standardizes patronymics in case they haven't already been standardized
     """
@@ -164,7 +178,7 @@ def vector(given_surname: GivenSurname, name: str):
 
 
 @app.get("/standard/{given_surname}/{name}", response_model=StandardResponse)
-def standard(given_surname: GivenSurname, name: str):
+def standard_api(given_surname: GivenSurname, name: str):
     """
     Name must be normalized, but this function standardizes patronymics in case they haven't already been standardized
     """

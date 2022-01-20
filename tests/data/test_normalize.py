@@ -1,4 +1,4 @@
-from src.data.prepare import (
+from src.data.normalize import (
     normalize,
     merge_surname_prefixes,
     remove_noise_words,
