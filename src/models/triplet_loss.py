@@ -15,7 +15,7 @@ from src.models.utils import get_best_matches, add_padding, remove_padding
 
 def get_near_negatives(
     input_names: list, weighted_actual_names_list: List[List[Tuple[str, float, int]]], candidate_names,
-    k: int=50, lower_threshold: float=0.7, upper_threshold: float=0.9
+    k: int=50, lower_threshold: float=0.7, upper_threshold: float=0.9, total: int=0
 ):
     """
     Return near-negatives for all input names
@@ -25,17 +25,22 @@ def get_near_negatives(
     :param k: how many near-negatives to return
     :param lower_threshold: names below this similarity threshold will not be considered
     :param upper_threshold: names above this similarity threshold will not be considered
+    :param total: total number of names for which to find near negatives
     :return: dict of name -> list of near-negative names
     """
     all_names_unpadded = set([remove_padding(name) for name in (input_names + candidate_names.tolist())])
     near_negatives = defaultdict(list)
-    for name, positives in tqdm(zip(input_names, weighted_actual_names_list), total=len(input_names)):
+    if total == 0:
+        total = len(input_names)
+    for name, positives in tqdm(zip(input_names, weighted_actual_names_list), total=total):
         positive_names = set(remove_padding(n) for n, _, _ in positives)
         near_negatives[name] = [
             add_padding(n)
             for n in _get_k_near_negatives(remove_padding(name), positive_names, all_names_unpadded,
                                            k=k, lower_threshold=lower_threshold, upper_threshold=upper_threshold)
         ]
+        if len(near_negatives) == total:
+            break
     return near_negatives
 
 

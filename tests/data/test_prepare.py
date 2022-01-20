@@ -63,6 +63,11 @@ test_normalize_data = [
     {"input": "A John", "is_surname": False, "result": ["a", "john"]},
     {"input": "Jo?n* Sm?th", "is_surname": False, "preserve_wildcards": True, "result": ["jo?n*", "sm?th"]},
     {"input": "Jo?n* Sm?th", "is_surname": False, "preserve_wildcards": False, "result": ["jo", "n", "sm"]},
+    {"input": "MR 1", "is_surname": False, "preserve_wildcards": False, "result": ["mr1"]},
+    {"input": "Z JONES", "is_surname": True, "preserve_wildcards": False, "result": ["jones"]},
+    {"input": "MR1 JONES", "is_surname": True, "preserve_wildcards": False, "result": ["jones"]},
+    {"input": "da john", "is_surname": False, "preserve_wildcards": False, "result": ["dajohn"]},
+    {"input": "wm", "is_surname": False, "preserve_wildcards": False, "result": ["william"]},
 ]
 
 
