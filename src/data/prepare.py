@@ -1,7 +1,7 @@
 from typing import List, Dict, Tuple, Set
 import numpy as np
 from editdistance import distance
-import re
+import regex
 from unidecode import unidecode
 
 from src.data.constants import (
@@ -74,16 +74,19 @@ def normalize(
     # lowercase
     normalized = normalized.lower()
     # remove possessive
-    normalized = re.sub("'s$", "", normalized)
+    normalized = regex.sub("'s$", "", normalized)
     # replace various forms of apostrophe with empty string
-    normalized = re.sub("[`'´‘’]", "", normalized)
-    # replace all other non-alphanumeric characters with space
-    regex = "[^ a-z0-9*?]" if preserve_wildcards else "[^ a-z0-9]"
-    normalized = re.sub(regex, " ", normalized)
+    normalized = regex.sub("[`'´‘’]", "", normalized)
+    # replace all non-alphanumeric characters with space
+    expr = r'[^ \p{L}0-9*?]' if preserve_wildcards else r'[^ \p{L}0-9]'
+    normalized = regex.sub(expr, " ", normalized)
+    # replace all non-latin-numeric characters with space
+    expr = r'[^ a-z0-9*?]' if preserve_wildcards else r'[^ a-z0-9]'
+    latin = regex.sub(expr, " ", normalized)
     # replace multiple spaces with a single space and trim
-    normalized = re.sub(" +", " ", normalized).strip()
+    latin = regex.sub(" +", " ", latin).strip()
     # split into pieces
-    pieces = normalized.split(" ")
+    pieces = latin.split(" ")
     # expand abbrevs
     if not is_surname:
         pieces = expand_given_abbrevs(pieces)
@@ -95,7 +98,7 @@ def normalize(
     # remove noise words
     pieces = remove_noise_words(pieces, is_surname)
     # remove numbers (kept until now so we could remove 1st as a noise word instead of having st as a prefix)
-    pieces = [re.sub("[0-9]", "", piece) for piece in pieces]
+    pieces = [regex.sub("[0-9]", "", piece) for piece in pieces]
     # remove noise words again so we remove things like mr1
     pieces = remove_noise_words(pieces, is_surname)
     # remove empty names and single-character surnames
@@ -103,7 +106,7 @@ def normalize(
     # if no pieces, return the normalized name (or the original name if normalized is empty) with spaces removed
     # this unfortunately creates a loophole that allows names that are not a-z, which have to be removed later
     if len(pieces) == 0:
-        pieces = [re.sub("\\s", "", normalized if normalized else name)]
+        pieces = [regex.sub("\\s", "", normalized if normalized else name)]
     # standardize patronymics
     if is_surname and handle_patronymics:
         pieces = [standardize_patronymics(piece) for piece in pieces]
