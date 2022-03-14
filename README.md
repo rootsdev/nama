@@ -33,6 +33,10 @@ Using deep learning to find similar personal names
 * fe2 stop < name >       # stopped instances can be re-started with fe2 start < name >
 * fe2 terminate < name >  # releases instance name and associated disk
 
+### Using gcloud
+* Use their deeplearning ami, and don't try to install another version of pytorch
+* don't use conda
+
 ### Logging into Weights and Biases
 * run `wandb login`
 * login information will be added to your ~/.netrc file

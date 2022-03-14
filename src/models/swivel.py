@@ -230,7 +230,7 @@ def get_swivel_embeddings(model, vocab, names, add_context=True, encoder_model=N
     out_of_vocab_name_ixs = [ix for ix, name in enumerate(names) if model is None or name not in vocab]
     if len(out_of_vocab_name_ixs) > 0 and encoder_model is None:
         print(f"WARNING {len(out_of_vocab_name_ixs)} names not in vocab and no encoder_model")
-    embed_dim = model.wi.weight.data.shape[1]
+    embed_dim = model.wi.weight.data.shape[1] if model else encoder_model.linear.out_features
     in_vocab_embs = None
     out_of_vocab_embs = None
 

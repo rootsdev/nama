@@ -16,7 +16,7 @@ then
 fi
 
 echo "Copying files to nama directory"
-rsync -a -e "ssh -l $USER" --exclude=/data --exclude=/data-raw --exclude=/src.egg-info . $IP:nama
+rsync -a -e "ssh -l $USER" --exclude=/data --exclude=/src.egg-info . $IP:nama
 scp ~/.netrc.wandb $USER@$IP:.netrc
 
 echo "Installing requirements into nama conda environment and copying data dir from s3"

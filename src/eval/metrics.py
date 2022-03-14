@@ -214,20 +214,14 @@ def precision_weighted_recall_at_threshold(
     return precisions, recalls
 
 
-def get_auc(
-    weighted_actual_names_list: List[List[Tuple[str, float, int]]],
-    candidates_list: np.ndarray,
-    min_threshold: float = 0.5,
-    max_threshold: float = 1.0,
-    step: float = 0.01,
+def get_auc_from_precisions_recalls(
+    precisions: List[float],
+    recalls: List[float],
     distances: bool = False,
 ) -> float:
     """
     Return the area under the curve of precision and weighted-recall
     """
-    precisions, recalls = precision_weighted_recall_at_threshold(
-        weighted_actual_names_list, candidates_list, min_threshold, max_threshold, step, distances
-    )
     # start with low recall, high precision
     if not distances:
         precisions.reverse()
@@ -257,6 +251,23 @@ def get_auc(
         recalls = ",".join([f"{i:.9f}" for i in recs])
         raise Exception(f"Invalid AUC precs={precisions} recs={recalls}")
     return auc
+
+
+def get_auc(
+    weighted_actual_names_list: List[List[Tuple[str, float, int]]],
+    candidates_list: np.ndarray,
+    min_threshold: float = 0.5,
+    max_threshold: float = 1.0,
+    step: float = 0.01,
+    distances: bool = False,
+) -> float:
+    """
+    Return the area under the curve of precision and weighted-recall
+    """
+    precisions, recalls = precision_weighted_recall_at_threshold(
+        weighted_actual_names_list, candidates_list, min_threshold, max_threshold, step, distances
+    )
+    return get_auc_from_precisions_recalls(precisions, recalls, distances)
 
 
 def ndcg_k(relevant: list, relevancy_scores: list, predicted: list, k: int = None) -> float:

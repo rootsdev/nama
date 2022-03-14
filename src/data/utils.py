@@ -11,13 +11,51 @@ from src.data.filesystem import fopen
 from src.models.utils import add_padding
 
 
-def load_datasets(paths: List[str]) -> List[Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]]:
-    return [_load(pd.read_csv(path)) for path in paths]
+def load_dataset(path: List[str], is_eval=False) -> Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]:
+    """
+    load name1, name2, weight, co-occurrence rows from a CSV and return
+    a list of input names (distinct name1),
+    a list of lists of weighted actual names (name2, weighted_count (probability that name1 -> name2, and co_occurrence)
+     for each input name
+    a list of candidate names (distinct name2)
+    is_eval: if True, remove any names associated with themselves and re-calculate the weights
+    because we don't want to have a name matching itself increase the weighted recall
+    """
+    # read dataframe
+    df = pd.read_csv(path)
+    # if we're using this dataset for evaluation, remove self-matches
+    # so matching the same name doesn't increase recall
+    if is_eval:
+        df.drop(df[df["name1"] == df["name2"]].index, inplace=True)
+        # and re-weight
+        df = add_weighted_count(df)
+
+    df_name_matches = df.groupby("name1").agg(list).reset_index()
+    weighted_actual_names = [
+        [(n, w, c) for n, w, c in zip(ns, ws, cs)]
+        for ns, ws, cs in zip(
+            df_name_matches["name2"], df_name_matches["weighted_count"], df_name_matches["co_occurrence"]
+        )
+    ]
+    input_names = df_name_matches["name1"].tolist()
+    candidate_names = np.array(df["name2"].unique())
+
+    # add (name1, 0.0, 0) to each weighted_actual_names list if it doesn't already exist
+    # so if a name matches itself, it doesn't hurt precision
+    for ix in range(0, len(input_names)):
+        name1 = input_names[ix]
+        if not any(name == name1 for name, _, _ in weighted_actual_names[ix]):
+            weighted_actual_names[ix].append((name1, 0.0, 0))
+
+    # if you want just relevant names:
+    # [[name for name,weight in name_weights] for name_weights in weighted_actual_names]
+    return input_names, weighted_actual_names, candidate_names
 
 
 def filter_dataset(input_names: List[str],
                     weighted_actual_names: List[List[Tuple[str, float, int]]],
-                    selected_names: Set[str]
+                    selected_names: Set[str],
+                    all_actuals=False,
                     ) -> Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]:
     """
     Filter dataset to have only selected_names, reweighting actual names
@@ -26,15 +64,18 @@ def filter_dataset(input_names: List[str],
     weighted_actual_names_filtered = []
     candidate_names_filtered = set()
     for input_name, wans in zip(input_names, weighted_actual_names):
-        wans = [(name, 0.0, freq) for name, _, freq in wans if input_name in selected_names and name in selected_names]
-        if len(wans) > 0:
+        if input_name not in selected_names:
+            continue
+        if not all_actuals:
+            wans = [(name, 0.0, freq) for name, _, freq in wans if input_name in selected_names and name in selected_names]
             # re-weight
             total_freq = sum([freq for _, _, freq in wans])
-            if total_freq > 0:  # if total_freq is 0, then the only candidate_name is the input name, so we can skip
-                wans = [(name, freq / total_freq, freq) for name, _, freq in wans]
-                input_names_filtered.append(input_name)
-                weighted_actual_names_filtered.append(wans)
-                candidate_names_filtered.update([name for name, _, _ in wans])
+            if total_freq == 0:  # if total_freq is 0, then the only candidate_name is the input name, so we can skip
+                continue
+            wans = [(name, freq / total_freq, freq) for name, _, freq in wans]
+        input_names_filtered.append(input_name)
+        weighted_actual_names_filtered.append(wans)
+        candidate_names_filtered.update([name for name, _, _ in wans])
     candidate_names_filtered = np.array([name for name in candidate_names_filtered])
     return input_names_filtered, weighted_actual_names_filtered, candidate_names_filtered
 
@@ -78,18 +119,19 @@ def select_frequent_k(input_names: List[str],
                       candidate_names: np.array,
                       k,
                       input_names_only=False,
+                      all_actuals=False,
                       ) -> Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]:
     """
     Filter dataset to have only the most-frequent k names
     """
     selected_names = set(frequent_k_names(input_names, weighted_actual_names, k, input_names_only))
 
-    return filter_dataset(input_names, weighted_actual_names, selected_names)
+    return filter_dataset(input_names, weighted_actual_names, selected_names, all_actuals=all_actuals)
 
 
 def add_weighted_count(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Given a dataframe, calculate the correct weighted_count and add padding
+    Given a dataframe, add the correct weighted_count
     """
 
     def divide_weighted_count_by_sum(df):
@@ -120,35 +162,6 @@ def _add_padding(df: pd.DataFrame) -> pd.DataFrame:
     df.loc[:, "name1"] = df.loc[:, "name1"].map(add_padding)
     df.loc[:, "name2"] = df.loc[:, "name2"].map(add_padding)
     return df
-
-
-def _load(df: pd.DataFrame) -> (List[str], List[List[Tuple[str, float, int]]], np.array):
-    """
-    Given a dataframe, return
-    a list of input names (distinct name1),
-    a list of lists of weighted actual names (name2, weighted_count (probability that name1 -> name2, and co_occurrence)
-     for each input name
-    a list of candidate names (distinct name2)
-    """
-    df_name_matches = df.groupby("name1").agg(list).reset_index()
-    weighted_actual_names = [
-        [(n, w, c) for n, w, c in zip(ns, ws, cs)]
-        for ns, ws, cs in zip(
-            df_name_matches["name2"], df_name_matches["weighted_count"], df_name_matches["co_occurrence"]
-        )
-    ]
-    input_names = df_name_matches["name1"].tolist()
-    candidate_names = np.array(df["name2"].unique())
-
-    # add (name1, 0.0, 0) to each weighted_actual_names list
-    # so if a name matches itself, it doesn't hurt precision
-    for ix in range(0, len(input_names)):
-        name1 = input_names[ix]
-        weighted_actual_names[ix].append((name1, 0.0, 0))
-
-    # if you want just relevant names:
-    # [[name for name,weight in name_weights] for name_weights in weighted_actual_names]
-    return input_names, weighted_actual_names, candidate_names
 
 
 def load_nicknames(path):

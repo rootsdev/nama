@@ -1,10 +1,10 @@
 from typing import List, Dict, Tuple
 import numpy as np
-from editdistance import distance
+from jellyfish import levenshtein_distance
 
 
 def levenshtein_similarity(name: str, alt_name: str) -> float:
-    return 1.0 - (distance(name, alt_name) / max(len(name), len(alt_name)))
+    return 1.0 - (levenshtein_distance(name, alt_name) / max(len(name), len(alt_name)))
 
 
 def _get_similarities(name_pieces: List[str], alt_name_pieces: List[str]):

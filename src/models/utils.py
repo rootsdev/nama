@@ -13,25 +13,31 @@ from src.data import constants
 
 def _get_candidate_scores(shared, rows, _):
     source_names, source_names_X, num_candidates, metric, normalized = shared
-    sorted_scores_idx = None
 
+    # get sorted score indexes - but partition first to save time
     if metric == "cosine":
         if normalized:  # If vectors are normalized dot product and cosine similarity are the same
             scores = safe_sparse_dot(rows, source_names_X.T)
         else:
             scores = cosine_similarity(rows, source_names_X)
+        # partition and sort
+        partitioned_idx = np.argpartition(scores, -num_candidates, axis=1)[:, -num_candidates:]
+        sorted_idx = np.flip(np.argsort(np.take_along_axis(scores, partitioned_idx, axis=1), axis=1), axis=1)
     elif metric == "euclidean":
         scores = euclidean_distances(rows, source_names_X)
-        sorted_scores_idx = np.argsort(scores, axis=1)[:, :num_candidates]
+        # partition and sort
+        partitioned_idx = np.argpartition(scores, num_candidates, axis=1)[:, :num_candidates]
+        sorted_idx = np.argsort(np.take_along_axis(scores, partitioned_idx, axis=1), axis=1)
     else:
         raise ValueError("Unrecognized metric type. Valid options: 'cosine', 'euclidean'")
+    # get the original score indexes before partitioning
+    sorted_scores_idx = np.take_along_axis(partitioned_idx, sorted_idx, axis=1)
 
-    if sorted_scores_idx is None:
-        sorted_scores_idx = np.flip(np.argsort(scores, axis=1), axis=1)[:, :num_candidates]
-
+    # get sorted scores and source names
     sorted_scores = np.take_along_axis(scores, sorted_scores_idx, axis=1)
-    ranked_candidates = source_names[sorted_scores_idx]
-    return np.dstack((ranked_candidates.astype(object), sorted_scores))
+    sorted_source_names = source_names[sorted_scores_idx]
+
+    return np.dstack((sorted_source_names.astype(object), sorted_scores))
 
 
 def get_best_matches(
@@ -56,6 +62,7 @@ def get_best_matches(
     :param num_candidates: Number of candidates to retrieve per name
     :param metric: Type of metric to use for fetching candidates
     :param normalized: Set it to true if X_input_names and X_source_names are L2 normalized
+    :param batch_size: number of rows per batch
     :param n_jobs: set to the number of cpu's to use; defaults to all
     :param progress_bar: display progress bar
     :return: candidate_names_scores: an nd.array of [input names, candidates, (names, scores)]
