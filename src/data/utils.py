@@ -30,15 +30,17 @@ def load_dataset(path: List[str], is_eval=False) -> Tuple[List[str], List[List[T
         # and re-weight
         df = add_weighted_count(df)
 
+    candidate_names = np.array(df["name2"].unique())
     df_name_matches = df.groupby("name1").agg(list).reset_index()
+    df = None
+    input_names = df_name_matches["name1"].tolist()
     weighted_actual_names = [
         [(n, w, c) for n, w, c in zip(ns, ws, cs)]
         for ns, ws, cs in zip(
             df_name_matches["name2"], df_name_matches["weighted_count"], df_name_matches["co_occurrence"]
         )
     ]
-    input_names = df_name_matches["name1"].tolist()
-    candidate_names = np.array(df["name2"].unique())
+    df_name_matches = None
 
     # add (name1, 0.0, 0) to each weighted_actual_names list if it doesn't already exist
     # so if a name matches itself, it doesn't hurt precision

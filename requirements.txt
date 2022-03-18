@@ -20,6 +20,7 @@ fastapi~=0.70.0
 hdbscan~=0.8.27
 hyperopt~=0.2.7
 jellyfish~=0.8.8
+joblib==1.1.0
 matplotlib~=3.4.3
 Metaphone~=0.6
 mpire~=2.3.0
@@ -31,6 +32,7 @@ phonetics~=1.0.5
 pyarrow~=5.0.0
 pydantic~=1.8.2
 pyphonetics~=0.5.3
+# rapidfuzz~=2.0.7
 ray[tune]~=1.8.0
 s3fs==0.4.2
 scikit-learn~=1.0
