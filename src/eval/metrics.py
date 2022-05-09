@@ -4,7 +4,7 @@ from typing import List, Tuple
 import matplotlib.pyplot as plt
 from mpire import WorkerPool
 import numpy as np
-import scipy
+from scipy.integrate import cumulative_trapezoid
 
 
 def precision_k(actuals: list, candidates: list, k: int) -> float:
@@ -245,7 +245,7 @@ def get_auc_from_precisions_recalls(
     # precs = [1.000000000, 1.000000000, 0.000212482]
     # recs = [0.000000000, 0.104290700, 0.105383575]
     # auc = scipy.integrate.simpson(precs, recs)
-    auc = scipy.integrate.cumulative_trapezoid(precs, recs, initial=0)[-1]
+    auc = cumulative_trapezoid(precs, recs, initial=0)[-1]
     if auc < 0.0 or auc > 1.0001:
         precisions = ",".join([f"{i:.9f}" for i in precs])
         recalls = ",".join([f"{i:.9f}" for i in recs])

@@ -11,7 +11,7 @@ from src.data.filesystem import fopen
 from src.models.utils import add_padding
 
 
-def load_dataset(path: List[str], is_eval=False) -> Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]:
+def load_dataset(path: List[str], is_eval=False, verbose=False) -> Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]:
     """
     load name1, name2, weight, co-occurrence rows from a CSV and return
     a list of input names (distinct name1),
@@ -22,14 +22,20 @@ def load_dataset(path: List[str], is_eval=False) -> Tuple[List[str], List[List[T
     because we don't want to have a name matching itself increase the weighted recall
     """
     # read dataframe
+    if verbose:
+        print("Reading dataset from {}".format(path))
     df = pd.read_csv(path)
     # if we're using this dataset for evaluation, remove self-matches
     # so matching the same name doesn't increase recall
     if is_eval:
         df.drop(df[df["name1"] == df["name2"]].index, inplace=True)
         # and re-weight
+        if verbose:
+            print("Re-weighting dataset")
         df = add_weighted_count(df)
 
+    if verbose:
+        print("Calculating weighted actual names")
     candidate_names = np.array(df["name2"].unique())
     df_name_matches = df.groupby("name1").agg(list).reset_index()
     df = None
@@ -44,6 +50,8 @@ def load_dataset(path: List[str], is_eval=False) -> Tuple[List[str], List[List[T
 
     # add (name1, 0.0, 0) to each weighted_actual_names list if it doesn't already exist
     # so if a name matches itself, it doesn't hurt precision
+    if verbose:
+        print("Adding padding to weighted actual names")
     for ix in range(0, len(input_names)):
         name1 = input_names[ix]
         if not any(name == name1 for name, _, _ in weighted_actual_names[ix]):
@@ -78,6 +86,7 @@ def filter_dataset(input_names: List[str],
         input_names_filtered.append(input_name)
         weighted_actual_names_filtered.append(wans)
         candidate_names_filtered.update([name for name, _, _ in wans])
+    # may be faster to say np.array(list(candidate_names_filtered))
     candidate_names_filtered = np.array([name for name in candidate_names_filtered])
     return input_names_filtered, weighted_actual_names_filtered, candidate_names_filtered
 

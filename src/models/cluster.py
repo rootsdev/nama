@@ -3,22 +3,21 @@ import gzip
 import json
 
 import hdbscan
-import jellyfish
-from mpire import WorkerPool
 import numpy as np
 import pandas as pd
 from sklearn.cluster import AgglomerativeClustering, OPTICS, cluster_optics_dbscan
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
-from tqdm import tqdm
 
 from src.data.filesystem import fopen
+from src.models.ensemble import get_best_ensemble_matches
 from src.models.utils import remove_padding, add_padding
 
 NYSIIS_SCORE = 0.6
 
 
 def get_sorted_similarities(embeddings, threshold=0.4, batch_size=1024):
+    # TODO use ensemble score, not cosine_similarity(embeddings)
     rows = []
     cols = []
     scores = []
@@ -93,17 +92,11 @@ def _dist_metric(scores):
     return distance
 
 
-def _generate_agglomerative_clusters(shared, closure_id, enclosed_ids, closure_embeddings):
-    cluster_threshold, linkage = shared
-    affinity = "cosine"
-    if linkage == "ward":
-        affinity = "euclidean"
-        closure_embeddings = normalize(closure_embeddings)
-        cluster_threshold = cluster_threshold / 10.0  # ward threshold is a different scale
+def _generate_agglomerative_clusters(cluster_threshold, linkage, distances):
+    print("generating agglomerative clusters", linkage, 1 - cluster_threshold)
     agg = AgglomerativeClustering(n_clusters=None, distance_threshold=1 - cluster_threshold,
-                                  affinity=affinity, linkage=linkage)
-    cluster_assignments = agg.fit_predict(closure_embeddings)
-    return closure_id, enclosed_ids, cluster_assignments
+                                  affinity="precomputed", linkage=linkage)
+    return agg.fit_predict(distances)
 
 
 def _convert_neg_to_unique(labels):
@@ -117,32 +110,39 @@ def _convert_neg_to_unique(labels):
     return results
 
 
-def _generate_optics_clusters(shared, closure_id, enclosed_ids, closure_embeddings):
-    min_samples, eps, max_eps, cluster_method, xi, n_jobs = shared
-    run_dbscan = False
-    if cluster_method == "xi+dbscan":
-        cluster_method = "xi"
-        run_dbscan = True
-    clust = OPTICS(min_samples=min_samples,
-                   cluster_method=cluster_method,
-                   xi=xi,
-                   max_eps=max_eps,
-                   metric="cosine",
-                   n_jobs=n_jobs,
-                   )
-    clust.fit(closure_embeddings)
+def _generate_optics_clusters(min_samples, eps, max_eps, cluster_method, xi, n_jobs, distances):
+    """generate clusters using OPTICS"""
+    pass
 
-    if run_dbscan:
-        labels = cluster_optics_dbscan(
-            reachability=clust.reachability_,
-            core_distances=clust.core_distances_,
-            ordering=clust.ordering_,
-            eps=eps,
-        )
-    else:
-        labels = clust.labels_
-        
-    return closure_id, enclosed_ids, _convert_neg_to_unique(labels)
+
+
+
+
+    #  = shared
+    # run_dbscan = False
+    # if cluster_method == "xi+dbscan":
+    #     cluster_method = "xi"
+    #     run_dbscan = True
+    # clust = OPTICS(min_samples=min_samples,
+    #                cluster_method=cluster_method,
+    #                xi=xi,
+    #                max_eps=max_eps,
+    #                metric="cosine",
+    #                n_jobs=n_jobs,
+    #                )
+    # clust.fit(closure_embeddings)
+    #
+    # if run_dbscan:
+    #     labels = cluster_optics_dbscan(
+    #         reachability=clust.reachability_,
+    #         core_distances=clust.core_distances_,
+    #         ordering=clust.ordering_,
+    #         eps=eps,
+    #     )
+    # else:
+    #     labels = clust.labels_
+    #
+    # return closure_id, enclosed_ids, _convert_neg_to_unique(labels)
 
 
 def _generate_hdbscan_clusters(shared, closure_id, enclosed_ids, closure_embeddings):
@@ -158,128 +158,121 @@ def _generate_hdbscan_clusters(shared, closure_id, enclosed_ids, closure_embeddi
     return closure_id, enclosed_ids, _convert_neg_to_unique(clust.labels_)
 
 
-def generate_clusters(closure2ids, cluster_embeddings,
+def generate_clusters(distances,
                       cluster_algo="agglomerative",
                       cluster_linkage="average", cluster_threshold=0.5,  # for agglomerative
                       min_samples=2, eps=0.5,                            # for optics or hdbscan
                       max_eps=1.0, cluster_method="xi+dbscan", xi=0.05,  # for optics
                       selection_method="eom", min_cluster_size=2,        # for hdbscan
-                      verbose=True, n_jobs=None):
-    id2cluster = {}
-    # calculate parameters
-    params_list = []
-    for closure_id, ids in closure2ids.items():
-        enclosed_ids = list(ids)
-        closure_embeddings = cluster_embeddings[enclosed_ids]
-        params_list.append((closure_id, enclosed_ids, closure_embeddings))
-    if n_jobs == 1 or cluster_algo == "optics":
-        results_list = []
-        if verbose:
-            params_list = tqdm(params_list)
-        for params in params_list:
-            if cluster_algo == "agglomerative":
-                results = _generate_agglomerative_clusters((cluster_threshold, cluster_linkage), *params)
-            elif cluster_algo == "optics":
-                results = _generate_optics_clusters((min_samples, eps, max_eps, cluster_method, xi, n_jobs), *params)
-            else:
-                results = _generate_hdbscan_clusters((min_samples, eps, selection_method, min_cluster_size), *params)
-            results_list.append(results)
+                      verbose=False, n_jobs=None):
+    if cluster_algo == "agglomerative":
+        results = _generate_agglomerative_clusters(cluster_threshold, cluster_linkage, distances)
+    elif cluster_algo == "optics":
+        results = _generate_optics_clusters(min_samples, eps, max_eps, cluster_method, xi, n_jobs, distances)
     else:
-        if cluster_algo == "agglomerative":
-            with WorkerPool(shared_objects=(cluster_threshold, cluster_linkage), n_jobs=n_jobs) as pool:
-                results_list = pool.map_unordered(_generate_agglomerative_clusters, params_list, progress_bar=verbose)
-        else:
-            with WorkerPool(shared_objects=(min_samples, eps, selection_method, min_cluster_size), n_jobs=n_jobs) as pool:
-                results_list = pool.map_unordered(_generate_hdbscan_clusters, params_list, progress_bar=verbose)
-
-    # process results
-    for results in results_list:
-        closure_id, enclosed_ids, cluster_assignments = results
-        for _id, cluster_id in zip(enclosed_ids, cluster_assignments):
-            id2cluster[_id] = f"{closure_id}_{cluster_id}"
-
-    # assign clustered_names not in any cluster to their own (singleton) cluster
-    for _id in range(0, len(cluster_embeddings)):
-        if _id not in id2cluster:
-            id2cluster[_id] = f"{_id}"
-
-    return id2cluster
+        results = _generate_hdbscan_clusters((min_samples, eps, selection_method, min_cluster_size), *params)
+    return results
 
 
-def get_clusters(all_names, all_embeddings, id2cluster, cluster_embeddings, max_clusters=5, batch_size=1024, k=100, verbose=True):
+def get_clusters(names_to_cluster,
+                 clustered_names,
+                 swivel_model,
+                 swivel_vocab,
+                 encoder_model,
+                 ensemble_model,
+                 name_freq,
+                 max_clusters=5,
+                 batch_size=1024,
+                 k=5000,
+                 is_oov_ensemble_model=True,
+                 n_jobs=1,
+                 verbose=True):
     """
     For each name in all_names, find the closest clustered names and return a list of (cluster_id, cluster_score) tuples
-    :param all_names: all names to assign
-    :param all_embeddings: embeddings for names to assign
-    :param id2cluster: clustered name id to cluster id
-    :param cluster_embeddings: embeddings for clustered names
+    :param names_to_cluster: names to assign clusters
+    :param clustered_names: clustered name to cluster id
+    :param swivel_model: swivel model
+    :param swivel_vocab: swivel vocabulary
+    :param encoder_model: encoder model
+    :param ensemble_model: ensemble model
+    :param name_freq: map names to their frequencies
+    :param max_clusters: maximum number of clusters to return for each input name
     :param batch_size:
-    :param k:
-    :return: for each name in all_names, a list of up to max_clusters (cluster_id, cluster_score) tuples
+    :param k: number of names to consider in the ensemble model and to get the best clusters
+    :param is_oov_ensemble_model: is the ensemble model an oov (out-of-vocab) model
+    :return: for each name in input_names, a list of up to max_clusters (cluster_id, cluster_score) tuples
     and also a dictionary mapping cluster id to the names for which that cluster is closest (that are assigned to the cluster)
     """
     name2clusters = defaultdict(list)
     cluster2names = defaultdict(list)
-    ixs = range(0, len(all_embeddings), batch_size)
-    if verbose:
-        ixs = tqdm(ixs)
-    for ix in ixs:
-        batch = all_embeddings[ix:ix + batch_size]
-        scores = cosine_similarity(batch, cluster_embeddings)
-        # ids = np.argsort(-scores)[:, :k]  # slow
-        # get the top k
-        ids = np.argpartition(-scores, k)[:, :k]
-        scores = scores[np.arange(len(batch))[:, None], ids]
-        # then sort the top k
-        ids_sort = np.argsort(-scores)
-        ids = ids[np.arange(len(batch))[:, None], ids_sort]
-        scores = scores[np.arange(len(batch))[:, None], ids_sort]
-        for name_id, _ids, _scores in zip(list(range(ix, ix + len(batch))), ids, scores):
-            name = all_names[name_id]
-            embedding = all_embeddings[name_id]
-            found_clusters = set()
-            # look for nearby clusters only if embedding is not zero
-            if np.any(embedding):
-                for _id, _score in zip(_ids, _scores):
-                    cluster_id = id2cluster[_id]
-                    if cluster_id not in found_clusters:
-                        if len(found_clusters) == 0:
-                            cluster2names[cluster_id].append(name)
-                        found_clusters.add(cluster_id)
-                        name2clusters[name].append((cluster_id, _score))
-                        if len(found_clusters) == max_clusters-1:
-                            break
-            # add nysiis code
-            cluster_id = "_"+jellyfish.nysiis(remove_padding(name)).upper()
-            _score = NYSIIS_SCORE
+
+    similar_names_scores = get_best_ensemble_matches(
+        model=swivel_model,
+        vocab=swivel_vocab,
+        input_names=names_to_cluster,
+        candidate_names=np.asarray(list(clustered_names.keys())),
+        encoder_model=encoder_model,
+        ensemble_model=ensemble_model,
+        name_freq=name_freq,
+        k=k,
+        batch_size=batch_size,
+        add_context=True,
+        n_jobs=n_jobs,
+        is_oov_model=is_oov_ensemble_model,
+        verbose=verbose,
+    )
+
+    for name, names_scores in zip(names_to_cluster, similar_names_scores):
+        # currently, never true, because len(names_scores) == k as a result of get_best_ensemble_matches
+        if len(names_scores) > k * 4:
+            partitioned_ixs = np.argpartition(names_scores[:, 1], -k, axis=0)[-k:]
+            sorted_ixs = np.flip(np.argsort(np.take_along_axis(names_scores[:, 1], partitioned_ixs, axis=0), axis=0),
+                                 axis=0)
+            sorted_ixs = np.take_along_axis(partitioned_ixs, sorted_ixs, axis=0)
+        else:
+            sorted_ixs = np.flip(np.argsort(names_scores[:, 1], axis=0), axis=0)[:k]
+        found_clusters = set()
+        for sorted_ix in sorted_ixs:
+            similar_name, similar_score = names_scores[sorted_ix]
+            similar_cluster_id = clustered_names[similar_name]
+            if similar_cluster_id in found_clusters:
+                continue
             if len(found_clusters) == 0:
-                cluster2names[cluster_id].append(name)
-            name2clusters[name].append((cluster_id, _score))
-            # re-sort
-            name2clusters[name].sort(key=lambda tup: tup[1], reverse=True)
+                cluster2names[similar_cluster_id].append(name)
+            found_clusters.add(similar_cluster_id)
+            name2clusters[name].append((similar_cluster_id, similar_score))
+            if len(found_clusters) == max_clusters:
+                break
 
     return name2clusters, cluster2names
 
 
-def get_best_cluster_matches(name2clusters, cluster2names, input_names, k=256):
-    # return [input names, candidates, (names, scores)]
-    all_cluster_names = []
-    all_scores = []
+def get_best_cluster_matches(name2clusters, cluster2names, input_names):
+    # return 3D array: [input name, candidate, (name, score)]
+    cluster_names_scores = []
+    max_cluster_names = 0
     for input_name in input_names:
         cluster_names = []
         cluster_scores = []
         for cluster_id, cluster_score in name2clusters[input_name]:
             for name in cluster2names[cluster_id]:
-                if len(cluster_names) == k:
-                    continue
                 cluster_names.append(name)
                 cluster_scores.append(cluster_score)
-        if len(cluster_names) < k:
-            pad_len = k - len(cluster_names)
-            cluster_names += [""] * pad_len
-            cluster_scores += [0.0] * pad_len
+        if len(cluster_names) > max_cluster_names:
+            max_cluster_names = len(cluster_names)
+        cluster_names_scores.append((cluster_names, cluster_scores))
+
+    # make sure the second dimension is the same for all input names
+    all_cluster_names = []
+    all_scores = []
+    for cluster_names, cluster_scores in cluster_names_scores:
+        if len(cluster_names) < max_cluster_names:
+            cluster_names.extend([''] * (max_cluster_names - len(cluster_names)))
+            cluster_scores.extend([-1.0] * (max_cluster_names - len(cluster_scores)))
         all_cluster_names.append(np.array(cluster_names, dtype=object))
         all_scores.append(np.array(cluster_scores, dtype=np.float32))
+
+    # return 3D array: [input name, candidate, (name, score)]
     all_cluster_names = np.vstack(all_cluster_names)
     all_scores = np.vstack(all_scores)
     return np.dstack((all_cluster_names, all_scores))

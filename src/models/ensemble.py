@@ -5,21 +5,27 @@ import numpy as np
 # from rapidfuzz.string_metric import levenshtein
 from tqdm import tqdm
 
-from src.eval.utils import similars_to_ndarray
+from src.models.levenshtein import get_lev_scores, get_best_lev_matches
 from src.models.swivel import get_best_swivel_matches
 from src.models.utils import remove_padding
 
 
-def featurize(swivel_score, lev_score, input_name_freq, candidate_name_freq):
+def featurize(swivel_score, lev_score, input_name_freq, candidate_name_freq, is_oov):
     log_max_freq = math.log10(max(input_name_freq, candidate_name_freq)+1)
     log_min_freq = math.log10(min(input_name_freq, candidate_name_freq)+1)
     return [
-        swivel_score,
-        swivel_score * log_max_freq,
-        swivel_score * log_min_freq,
-        lev_score,
-        lev_score * log_max_freq,
-        lev_score * log_min_freq,
+        swivel_score if not is_oov else 0.0,
+        swivel_score * log_max_freq if not is_oov else 0.0,
+        swivel_score * log_min_freq if not is_oov else 0.0,
+        lev_score if not is_oov else 0.0,
+        lev_score * log_max_freq if not is_oov else 0.0,
+        lev_score * log_min_freq if not is_oov else 0.0,
+        1.0 if not is_oov else 0.0,
+
+        lev_score if is_oov else 0.0,
+        lev_score * log_max_freq if is_oov else 0.0,
+        lev_score * log_min_freq if is_oov else 0.0,
+        1.0 if is_oov else 0.0,
     ]
 
 
@@ -45,54 +51,148 @@ def _get_lev_similars_for_name(name, candidate_names):
     return list(zip(candidate_names, candidate_scores))
 
 
-def get_best_ensemble_matches(model, vocab, input_names, candidate_names, encoder_model, ensemble_model, name_freq,
-                              k, batch_size, add_context=True, n_jobs=1, swivel_threshold=0.45, lev_threshold=0.55):
-    swivel_names_scores = get_best_swivel_matches(model=model,
-                                                  vocab=vocab,
-                                                  input_names=input_names,
-                                                  candidate_names=candidate_names,
-                                                  encoder_model=encoder_model,
-                                                  k=k,
-                                                  batch_size=batch_size,
-                                                  add_context=add_context,
-                                                  n_jobs=n_jobs)
-    similar_names_scores = []
-    max_similars = 0
-    empty_similars = 0
-    for input_name, swivels in tqdm(zip(input_names, swivel_names_scores), total=len(input_names)):
-        swivel_scores = {name: score for name, score in swivels if score >= swivel_threshold}
-        swivel_names = set(swivel_scores.keys())
-
-        # calc lev scores
-        lev_scores = {name: score for name, score in
-                      _get_lev_similars_for_name(input_name, np.array(list(swivel_names))) if score >= lev_threshold}
-        lev_names = set(lev_scores.keys())
-
-        # generate features from swivel and levenshtein scores and frequency
+def _get_ensemble_names_scores(ensemble_model, name_freq, input_names, k,
+                               swivel_names_scores_in_vocab, lev_scores_in_vocab,
+                               lev_names_scores_out_vocab, verbose=True):
+    result = []
+    # get best ensemble names+scores for each input name
+    rng = range(input_names.shape[0])
+    if verbose:
+        rng = tqdm(rng)
+    for i in rng:
+        input_name = input_names[i]
         input_name_freq = name_freq.get(input_name, 0)
-        candidate_names = swivel_names.intersection(lev_names)
         features = []
-        for candidate_name in candidate_names:
-            swivel_score = swivel_scores[candidate_name]
-            lev_score = lev_scores[candidate_name]
-            candidate_name_freq = name_freq.get(candidate_name, 0)
-            features.append(featurize(swivel_score, lev_score, input_name_freq, candidate_name_freq))
-
+        candidate_names = []
+        if swivel_names_scores_in_vocab is not None:
+            # add features for swivel+lev scores
+            for swivel_name_score, lev_score in zip(swivel_names_scores_in_vocab[i], lev_scores_in_vocab[i]):
+                candidate_name = swivel_name_score[0]
+                candidate_name_freq = name_freq.get(candidate_name, 0)
+                swivel_score = swivel_name_score[1]
+                candidate_names.append(candidate_name)
+                features.append(featurize(
+                    swivel_score,
+                    lev_score,
+                    input_name_freq,
+                    candidate_name_freq,
+                    is_oov=False,
+                ))
+        if lev_names_scores_out_vocab is not None:
+            # add features for just lev scores
+            for lev_name_score in lev_names_scores_out_vocab[i]:
+                candidate_name = lev_name_score[0]
+                candidate_name_freq = name_freq.get(candidate_name, 0)
+                lev_score = lev_name_score[1]
+                candidate_names.append(candidate_name)
+                features.append(featurize(
+                    0.0,
+                    lev_score,
+                    input_name_freq,
+                    candidate_name_freq,
+                    is_oov=True,
+                ))
         # predict
-        if len(features) == 0:
-            empty_similars += 1
-            predictions = []
+        predictions = ensemble_model.predict_proba(features)[:, 1]
+        candidate_names = np.array(candidate_names, dtype="O")
+        if k < len(predictions):
+            # get indices of the top k predictions
+            ixs = np.argpartition(predictions, -k)[-k:]
+            # return np.stack(names, predictions)
+            top_names = candidate_names[ixs]
+            top_scores = predictions[ixs]
         else:
-            predictions = ensemble_model.predict_proba(features)[:, 1]
-        similar_names_scores.append(list(zip(list(candidate_names), predictions)))
-        if len(predictions) > max_similars:
-            max_similars = len(predictions)
+            top_names = candidate_names
+            top_scores = predictions
+        result.append(np.stack((top_names, top_scores), axis=1))
+    return np.stack(result, axis=0)
 
-    # ensure all lists have the same length
-    for similars in similar_names_scores:
-        if len(similars) < max_similars:
-            similars.extend((("", 0.0),)*(max_similars - len(similars)))
 
-    print("max_similars", max_similars)
-    print("empty_similars", empty_similars)
-    return similars_to_ndarray(similar_names_scores)
+def get_best_ensemble_matches(model, vocab, name_freq, input_names, candidate_names, tfidf_vectorizer, ensemble_model,
+                              k, batch_size, add_context=True, n_jobs=1, verbose=True):
+    # get in-vocab vs out-of-vocab input names and candidate names
+    vocab_names = set(vocab.keys())
+    input_names = np.asarray(input_names)
+    # input_in_vocab_ixs = np.isin(input_names, vocab_names)
+    input_in_vocab_ixs = np.array([name in vocab_names for name in input_names])
+    input_out_vocab_ixs = np.invert(input_in_vocab_ixs)
+    candidate_names = np.asarray(candidate_names)
+    # candidate_in_vocab_ixs = np.isin(candidate_names, vocab_names)
+    candidate_in_vocab_ixs = np.array([name in vocab_names for name in candidate_names])
+    candidate_out_vocab_ixs = np.invert(candidate_in_vocab_ixs)
+
+    # initialize empty ensemble_names_scores result
+    if k > candidate_names.shape[0]:
+        k = candidate_names.shape[0]
+    ensemble_names_scores_names = np.empty((input_names.shape[0], k), dtype="O")
+    ensemble_names_scores_scores = np.empty((input_names.shape[0], k), dtype=float)
+    ensemble_names_scores = np.dstack((ensemble_names_scores_names, ensemble_names_scores_scores))
+
+    if k == 0:
+        return ensemble_names_scores
+
+    if np.sum(input_in_vocab_ixs) > 0:
+        # get swivel scores for input name & candidate name pairs that are both in-vocab
+        if np.sum(candidate_in_vocab_ixs) > 0:
+            swivel_names_scores_in_vocab = get_best_swivel_matches(model=model,
+                                                                   vocab=vocab,
+                                                                   input_names=input_names[input_in_vocab_ixs],
+                                                                   candidate_names=candidate_names[candidate_in_vocab_ixs],
+                                                                   k=k,
+                                                                   batch_size=batch_size,
+                                                                   add_context=add_context,
+                                                                   n_jobs=n_jobs,
+                                                                   progress_bar=verbose)
+            # get lev scores for in-vocab name pairs
+            lev_scores_in_vocab = get_lev_scores(input_names[input_in_vocab_ixs],
+                                                 swivel_names_scores_in_vocab[:, :, 0],
+                                                 batch_size=batch_size,
+                                                 n_jobs=n_jobs,
+                                                 progress_bar=verbose)
+        else:
+            swivel_names_scores_in_vocab = None
+            lev_scores_in_vocab = None
+
+        # get lev scores for input name & candidate name pairs where the input names are in-vocab, candidate names are out
+        if np.sum(candidate_out_vocab_ixs) > 0:
+            lev_names_scores_candidate_out_vocab = get_best_lev_matches(tfidf_vectorizer,
+                                                                        input_names[input_in_vocab_ixs],
+                                                                        candidate_names[candidate_out_vocab_ixs],
+                                                                        k=k,
+                                                                        batch_size=batch_size,
+                                                                        n_jobs=n_jobs,
+                                                                        progress_bar=verbose)
+        else:
+            lev_names_scores_candidate_out_vocab = None
+
+        # get in-vocab ensemble names and scores
+        ensemble_names_scores[input_in_vocab_ixs] = _get_ensemble_names_scores(ensemble_model,
+                                                                               name_freq,
+                                                                               input_names[input_in_vocab_ixs],
+                                                                               k,
+                                                                               swivel_names_scores_in_vocab,
+                                                                               lev_scores_in_vocab,
+                                                                               lev_names_scores_candidate_out_vocab,
+                                                                               verbose=verbose)
+
+    if np.sum(input_out_vocab_ixs) > 0:
+        # get lev matches for input name & candidate name pairs where the input names are out-of-vocab
+        lev_names_scores_input_out_vocab = get_best_lev_matches(tfidf_vectorizer,
+                                                                input_names[input_out_vocab_ixs],
+                                                                candidate_names,
+                                                                k=k,
+                                                                batch_size=batch_size,
+                                                                n_jobs=n_jobs,
+                                                                progress_bar=verbose)
+
+        # get out-of-vocab ensemble names and scores
+        ensemble_names_scores[input_out_vocab_ixs] = _get_ensemble_names_scores(ensemble_model,
+                                                                                name_freq,
+                                                                                input_names[input_out_vocab_ixs],
+                                                                                k,
+                                                                                None,
+                                                                                None,
+                                                                                lev_names_scores_input_out_vocab,
+                                                                                verbose=verbose)
+
+    return ensemble_names_scores

@@ -13,6 +13,7 @@ from src.data.constants import (
     POSS_SURNAME_NOISE_WORDS,
     PATRONYMIC_PATTERNS,
 )
+from src.models import utils
 
 
 def merge_surname_prefixes(name_pieces: List[str]) -> List[str]:
@@ -110,3 +111,19 @@ def normalize(
         pieces = [standardize_patronymics(piece) for piece in pieces]
     # return pieces
     return pieces
+
+
+def normalize_freq_names(freq_df, is_surname, add_padding):
+    name_freq = {}
+    for name, freq in zip(freq_df["name"], freq_df["frequency"]):
+        pieces = normalize(name, is_surname=is_surname)
+        if len(pieces) != 1 or len(pieces[0]) == 0:
+            continue
+        name = pieces[0]
+        if regex.search("[^a-z]", name):
+            continue
+        if add_padding:
+            name = utils.add_padding(name)
+        if name not in name_freq:
+            name_freq[name] = freq
+    return name_freq

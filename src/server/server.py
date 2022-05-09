@@ -198,7 +198,7 @@ def standard_api(given_surname: GivenSurname, name: str):
     # get clusters
     name2clusters, _ = get_clusters(all_names=variants,
                                     all_embeddings=variant_embeddings,
-                                    id2cluster=clusters[given_surname].clustered_name_cluster_ids,
+                                    clusters=clusters[given_surname].clustered_name_cluster_ids,
                                     cluster_embeddings=clusters[given_surname].clustered_name_embeddings,
                                     k=1024,
                                     max_clusters=max_search_clusters,
