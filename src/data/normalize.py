@@ -117,7 +117,7 @@ def normalize_freq_names(freq_df, is_surname, add_padding):
     name_freq = {}
     for name, freq in zip(freq_df["name"], freq_df["frequency"]):
         pieces = normalize(name, is_surname=is_surname)
-        if len(pieces) != 1 or len(pieces[0]) == 0:
+        if len(pieces) != 1 or len(pieces[0]) <= 1:
             continue
         name = pieces[0]
         if regex.search("[^a-z]", name):

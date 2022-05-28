@@ -133,12 +133,13 @@ def get_best_ensemble_matches(model, vocab, name_freq, input_names, candidate_na
 
     if np.sum(input_in_vocab_ixs) > 0:
         # get swivel scores for input name & candidate name pairs that are both in-vocab
-        if np.sum(candidate_in_vocab_ixs) > 0:
+        n_candidate_in_vocab = np.sum(candidate_in_vocab_ixs)
+        if n_candidate_in_vocab > 0:
             swivel_names_scores_in_vocab = get_best_swivel_matches(model=model,
                                                                    vocab=vocab,
                                                                    input_names=input_names[input_in_vocab_ixs],
                                                                    candidate_names=candidate_names[candidate_in_vocab_ixs],
-                                                                   k=k,
+                                                                   k=min(n_candidate_in_vocab, k),
                                                                    batch_size=batch_size,
                                                                    add_context=add_context,
                                                                    n_jobs=n_jobs,
@@ -154,11 +155,12 @@ def get_best_ensemble_matches(model, vocab, name_freq, input_names, candidate_na
             lev_scores_in_vocab = None
 
         # get lev scores for input name & candidate name pairs where the input names are in-vocab, candidate names are out
-        if np.sum(candidate_out_vocab_ixs) > 0:
+        n_candidate_out_vocab = np.sum(candidate_out_vocab_ixs)
+        if n_candidate_out_vocab > 0:
             lev_names_scores_candidate_out_vocab = get_best_lev_matches(tfidf_vectorizer,
                                                                         input_names[input_in_vocab_ixs],
                                                                         candidate_names[candidate_out_vocab_ixs],
-                                                                        k=k,
+                                                                        k=min(n_candidate_out_vocab, k),
                                                                         batch_size=batch_size,
                                                                         n_jobs=n_jobs,
                                                                         progress_bar=verbose)
