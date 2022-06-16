@@ -408,7 +408,7 @@ def get_distances(name_freq,
         batch_size=batch_size,
         add_context=True,
         n_jobs=n_jobs,
-        verbose=False,
+        verbose=verbose,
     )
 
     # create name to index dictionary
@@ -451,7 +451,7 @@ def generate_clusters_from_distances(cluster_algo,
                                         cluster_threshold=cluster_threshold,
                                         # other options
                                         n_jobs=n_jobs,
-                                        verbose=False,
+                                        verbose=verbose,
                                         )
     del distances
 
@@ -490,6 +490,7 @@ def get_validation_results(input_names_eval,
                            max_clusters,
                            num_matches=5000,
                            lookup_mode=False,
+                           cluster_partition=None,
                            n_jobs=1,
                            verbose=False,
                            sample_size=5000,
@@ -501,6 +502,7 @@ def get_validation_results(input_names_eval,
 
     precisions = []
     recalls = []
+    avg_partitions = []
     f1s = []
     f2s = []
     all_f1s = []
@@ -576,11 +578,22 @@ def get_validation_results(input_names_eval,
         # eval f1
         precision_map = {}
         recall_map = {}
+        avg_partition_map = {}
         f1_map = {}
         f2_map = {}
         for threshold in search_thresholds:
-            # TODO count # distinct superclusters in cluster2supercluster for clusters in name2clusters above threshold
-            # and save average
+            # count n_partitions for each distinct partition in cluster_partition for clusters in name2clusters above threshold
+            total_partitions = 0
+            if cluster_partition is not None:
+                for input_name in input_names_validate:
+                    partitions = {}
+                    for cluster_id, cluster_score in name2clusters[input_name]:
+                        if cluster_score >= threshold:
+                            start_partition, n_partitions = cluster_partition[cluster_id]
+                            partitions[start_partition] = n_partitions
+                    total_partitions += sum(partitions.values())  # sum n_partitions for each distinct partition
+            avg_partition_lookups = total_partitions / len(input_names_validate)
+            # get precision and recall
             precision = avg_precision_at_threshold(weighted_actual_names_validate, best_matches,
                                                    threshold)
             recall = avg_weighted_recall_at_threshold(weighted_actual_names_validate, best_matches,
@@ -589,9 +602,10 @@ def get_validation_results(input_names_eval,
             f2 = 5 * (precision * recall) / (4 * precision + recall)
             if verbose:
                 print("result", datetime.now(), "threshold", threshold, "precision", precision, "recall", recall, "f1",
-                      f1, "f2", f2)
+                      f1, "f2", f2, "avg_partitions", avg_partition_lookups)
             precision_map[threshold] = precision
             recall_map[threshold] = recall
+            avg_partition_map[threshold] = avg_partition_lookups
             f1_map[threshold] = f1
             f2_map[threshold] = f2
             all_f1s.append(f1)
@@ -599,6 +613,7 @@ def get_validation_results(input_names_eval,
 
         precisions.append(precision_map)
         recalls.append(recall_map)
+        avg_partitions.append(avg_partition_map)
         f1s.append(f1_map)
         f2s.append(f2_map)
 
@@ -612,4 +627,5 @@ def get_validation_results(input_names_eval,
         'f2s': f2s,
         'precisions': precisions,
         'recalls': recalls,
+        'avg_partitions': avg_partitions,
     }
