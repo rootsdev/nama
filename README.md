@@ -21,41 +21,97 @@ Run notebooks in the order listed
 * 00_snorkel - Experiment with snorkel (ignore, we tried using snorkel but it didn't work well)
 * 00_snorkel_names - Use snorkel to generate training data (ignore this as well)
 * 10_clean - Clean the raw name pairs from FamilySearch (pairs of tree <-> record name) and separate into given and surnames
-* 11_clean - Clean the preferred tree names from FamilySearch 
+  * hr_input: "s3://familysearch-names/raw/tree-hr/"
+  * hr_given_output: "s3://familysearch-names/interim/tree-hr-given/"
+  * hr_surname_output: "s3://familysearch-names/interim/tree-hr-surname/"
+* 11_clean - Clean the preferred tree names from FamilySearch
+  * pref_input: "s3://familysearch-names/raw/tree-preferred/"
+  * pref_given_output: "s3://familysearch-names/interim/tree-preferred-given/"
+  * pref_surname_output: "s3://familysearch-names/interim/tree-preferred-surname/"
 * 12_analyze_preferred - Review given name abbreviations (optional)
+  * pref_given_input: "s3://familysearch-names/interim/tree-preferred-given/"
 * 20_generate_pairs - Generate pairs of best-matching name pieces from multi-word given or surnames
+  * hr_given|surname_input: "s3://familysearch-names/interim/tree-hr-given|surname/"
+  * hr_pairs_given|surname_output: "s3://familysearch-names/interim/tree-hr-given|surname-pairs/"
 * 30_aggregate - Aggregate pairs of matching tree <-> record name pieces and compute counts, probabilities, and similarities
+  * hr_pairs_given|surname_input: "s3://familysearch-names/interim/tree-hr-given|surname-pairs/"
+  * hr_aggr_given|surname_output: "s3://familysearch-names/interim/tree-hr-given|surname-aggr.parquet"
 * 31_aggregate_preferred - Aggregate preferred (tree) names and compute counts
+  * pref_given|surname_input: "s3://familysearch-names/interim/tree-preferred-given|surname/"
+  * pref_aggr_given|surname_output: "s3://familysearch-names/interim/tree-preferred-given|surname-aggr.csv.gz"
 * 32_analyze_aggregate_preferred - Get an idea of how much mass is in the top Nk names (optional)
+  * pref_aggr_given|surname_input: "s3://familysearch-names/processed/tree-preferred-given|surname-aggr.csv.gz"
 * 40_filter - Create lists of pairs that are similarly-spelled (used to create the model) and pairs that are dissimilar
+  * hr_aggr_given|surname_input: "s3://familysearch-names/interim/tree-hr-given|surname-aggr.parquet"
+  * hr_similar_given|surname_output: "s3://familysearch-names/processed/tree-hr-given|surname-similar.csv.gz"
+  * hr_dissimilar_given|surname_output: "s3://familysearch-names/processed/tree-hr-given|surname-dissimilar.csv.gz" 
 * 41_generate_nicknames - Create a file of dissimilar given name (potential nickname) pairs for human review
+  * hr_dissimilar_given_input: "s3://familysearch-names/processed/tree-hr-given-dissimilar.csv.gz"
+  * hr_possible_nicknames_output: "s3://familysearch-names/processed/tree-hr-nicknames.csv.gz"
 * 45_train_test_split - Split similar name pairs into training and test sets
+  * hr_similar_given|surname_input: "s3://familysearch-names/processed/tree-hr-given|surname-similar.csv.gz"
+  * hr_train_unfiltered_given|surname_output: "s3://familysearch-names/processed/tree-hr-given|surname-train-unfiltered.csv.gz"
+  * hr_test_given|surname_output: "s3://familysearch-names/processed/tree-hr-given|surname-test.csv.gz"
 * 46_demo_dataset - Create a very small demo dataset to play with (optional)
+  * pref_aggr_given|surname_input: "s3://familysearch-names/processed/tree-preferred-given|surname-aggr.csv.gz"
+  * hr_train_unfiltered_given|surname_input: "s3://familysearch-names/processed/tree-hr-given|surname-train-unfiltered.csv.gz"
+  * hr_demo_given|surname_output: "s3://familysearch-names/processed/tree-hr-given|surname-train-demo.csv.gz"  
 * 47_bad_pair_generator - Generate hard (near) negative pairs (ignore - not used)
 * 47a_filter_bad_pairs - Remove pairs that were identified as bad pairs during a manual review of borderline pairs
+  * hr_train_unfiltered_given|surname_input: s3://familysearch-names/processed/tree-hr-given|surname-train-unfiltered.csv.gz"
+  * bad_pairs_input: "s3://familysearch-names/interim/given|surname_variants_clorinda_reviewed.tsv"
+  * hr_train_given|surname_output: "s3://familysearch-names/processed/tree-hr-given|surname-train.csv.gz"
 * 48_weighted_actual_names_to_csv - Write weighted-actual name pairs for human review (optional)
+  * hr_train_given|surname_input: "s3://familysearch-names/processed/tree-hr-given|surname-train.csv.gz"
+  * hr_test_given|surname_input: "s3://familysearch-names/processed/tree-hr-given|surname-test.csv.gz"
+  * hr_train_weighted_actuals_given|surname_output: "s3://familysearch-names/processed/tree-hr-given|surname-train-{size}-weighted-actuals.csv"
+  * hr_test_weighted_actuals_given|surname_output: "s3://familysearch-names/processed/tree-hr-given|surname-test-weighted-actuals.csv"
 * 49_augment_dataset - Augment the training dataset with other matching pairs based upon names having the same code or levenshtein similarity
+  * hr_train_given|surname_input: "s3://familysearch-names/processed/tree-hr-given|surname-train.csv.gz"
+  * hr_train_augments_given|surname_output: "s3://familysearch-names/processed/tree-hr-given|surname-train-augments.csv.gz"
+  * hr_train_augmented_given|surname_output: "s3://familysearch-names/processed/tree-hr-given|surname-train-augmented.csv.gz"
 * 50_autoencoder - Generate an autoencoder model based upon similar name pairs (not used)
 * 51_autoencoder_triplet - Generate a triplet-loss model based upon the autoencoder and near-negatives (not used)
 * 52_glove - Generate a glove model (not used)
 * 60_swivel_tune - Run hyperparameter tuning on swivel model (optional)
+  * hr_train_augmented_given|surname_input: "s3://familysearch-names/processed/tree-hr-given|surname-train-augmented.csv.gz"
 * 61_swivel - Train a swivel model (takes a long, long, long time)
+  * hr_train_augmented_given|surname_input: "s3://familysearch-names/processed/tree-hr-given|surname-train-augmented.csv.gz"
+  * hr_train_given|surname_input: "s3://familysearch-names/processed/tree-hr-given|surname-train.csv.gz"
+  * swivel_vocab_given|surname_output: "s3://nama-data/data/models/fs-given|surname-swivel-vocab-{vocab_size}-augmented.csv"
+  * swivel_model_given|surname_output: "s3://nama-data/data/models/fs-given|surname-swivel-model-{vocab_size}-{embed_dim}-augmented.pth"
 * 62_swivel_encoder_tune - Tune a swivel-based encoder model (not used)
 * 63_swivel_encoder - Train a swivel-based encoder model (not used)
 * 64_analyze_scores - Compare swivel and levenshtein scores (optional)
+  * TBD 
 * 65_tfidf - Train a TfidfVectorizer to filter names sent to levenshtein
+  * TBD 
 * 66_ensemble - Train an ensemble model over swivel + levenshtein
+  * TBD 
 * 70_compare_similarity - Compare the ensemble model to levenshtein and other floating-score algorithms (optional)
+  * TBD 
 * 71_analyze_embeddings - Visualize swivel vectors in 2d space (optional)
+  * TBD 
 * 72_analyze_names - Graph various statistics of names and name-coders (optional)
+  * TBD 
 * 80_cluster_tune - Run hyperparameter tuning on clustering model (optional)
+  * TBD 
 * 81_cluster - Train a clustering model (optional)
+  * TBD 
 * 82_cluster_levenshtein - Not sure what this does. Very out of date. (ignore)
-* 90_compare_clusters - # Compare our clusters to the clusters formed by various coders (soundex, nysiis, etc.) (optional)
+  * TBD 
+* 90_compare_clusters - Compare our clusters to the clusters formed by various coders (soundex, nysiis, etc.) (optional)
+  * TBD 
 * 91_compare_clusters_old_algo - Get Statistics for the old clusters (optional)
+  * TBD 
+* 92_compare_oov_approaches - Compare our approach to handling out of vocab names to four simpler approaches (optional)
+  * TBD 
 * 97_analyze_nicknames - Review nicknames (optional)
+  * TBD 
 * 98_given_surname_freq - Generate how likely a name is to be a given vs surname (optional)
+  * TBD 
 * 99_precompute - Pre-compute embeddings and cluster-scores so they can be cached (optional)
+  * TBD 
 
 ### Server
 
