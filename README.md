@@ -2,6 +2,8 @@
 
 Using deep learning to find similar personal names
 
+[Presentation Slides](https://docs.google.com/presentation/d/1xg0PYlfd14vQjgzsGm6woGYEcWljI_4T3C5S6-XqNvk/edit?usp=sharing)
+
 ## Initial Setup
     make create_environment
     conda activate nama
