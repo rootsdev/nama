@@ -66,7 +66,8 @@ def standardize_patronymics(name: str) -> str:
 
 
 def normalize(
-    name: str, is_surname: bool, preserve_wildcards: bool = False, handle_patronymics: bool = True
+        name: str, is_surname: bool, preserve_wildcards: bool = False,
+        handle_patronymics: bool = True, dont_return_empty: bool = True
 ) -> List[str]:
     # remove diacritics and transliterate
     normalized = unidecode(name)
@@ -104,7 +105,7 @@ def normalize(
     pieces = [piece for piece in pieces if piece and (len(piece) > 1 or not is_surname)]
     # if no pieces, return the normalized name (or the original name if normalized is empty) with spaces removed
     # this unfortunately creates a loophole that allows names that are not a-z, which have to be removed later
-    if len(pieces) == 0:
+    if dont_return_empty and len(pieces) == 0:
         pieces = [regex.sub("\\s", "", normalized if normalized else name)]
     # standardize patronymics
     if is_surname and handle_patronymics:
@@ -113,10 +114,10 @@ def normalize(
     return pieces
 
 
-def normalize_freq_names(freq_df, is_surname, add_padding):
+def normalize_freq_names(freq_df, is_surname, add_padding, dont_return_empty=True):
     name_freq = {}
     for name, freq in zip(freq_df["name"], freq_df["frequency"]):
-        pieces = normalize(name, is_surname=is_surname)
+        pieces = normalize(name, is_surname=is_surname, dont_return_empty=dont_return_empty)
         if len(pieces) != 1 or len(pieces[0]) <= 1:
             continue
         name = pieces[0]

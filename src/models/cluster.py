@@ -181,7 +181,7 @@ def get_clusters_from_table(names_to_cluster,
     name2clusters = defaultdict(list)
     cluster2names = defaultdict(list)
     if verbose:
-        names_to_cluster = tqdm(names_to_cluster)
+        names_to_cluster = tqdm(names_to_cluster, mininterval=1.0)
 
     for name in names_to_cluster:
         if name not in clustered_names:
@@ -278,7 +278,7 @@ def get_best_cluster_matches(name2clusters, cluster2names, input_names, verbose=
     # return 3D array: [input name, candidate, (name, score)]
     if verbose:
         print("get cluster names and scores for input_names", datetime.now(), len(input_names))
-        input_names = tqdm(input_names)
+        input_names = tqdm(input_names, mininterval=1.0)
     cluster_names_scores = []
     max_cluster_names = 0
     for input_name in input_names:
@@ -295,7 +295,7 @@ def get_best_cluster_matches(name2clusters, cluster2names, input_names, verbose=
     # make sure the second dimension is the same for all input names
     if verbose:
         print("expand the second dimension to", datetime.now(), max_cluster_names)
-        cluster_names_scores = tqdm(cluster_names_scores)
+        cluster_names_scores = tqdm(cluster_names_scores, mininterval=1.0)
     all_cluster_names = []
     all_scores = []
     for cluster_names, cluster_scores in cluster_names_scores:

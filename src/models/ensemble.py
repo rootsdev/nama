@@ -58,7 +58,7 @@ def _get_ensemble_names_scores(ensemble_model, name_freq, input_names, k,
     # get best ensemble names+scores for each input name
     rng = range(input_names.shape[0])
     if verbose:
-        rng = tqdm(rng)
+        rng = tqdm(rng, mininterval=1.0)
     for i in rng:
         input_name = input_names[i]
         input_name_freq = name_freq.get(input_name, 0)
