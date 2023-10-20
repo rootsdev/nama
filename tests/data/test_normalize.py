@@ -66,6 +66,10 @@ test_normalize_data = [
     {"input": "MR1 JONES", "is_surname": True, "preserve_wildcards": False, "result": ["jones"]},
     {"input": "da john", "is_surname": False, "preserve_wildcards": False, "result": ["dajohn"]},
     {"input": "wm", "is_surname": False, "preserve_wildcards": False, "result": ["william"]},
+    {"input": "dejesus", "is_surname": False, "preserve_wildcards": False, "result": ["dejesus"]},
+    {"input": "dejesus", "is_surname": True, "preserve_wildcards": False, "result": ["dejesus"]},
+    {"input": "de jesus", "is_surname": False, "preserve_wildcards": False, "result": ["dejesus"]},
+    {"input": "de jesus", "is_surname": True, "preserve_wildcards": False, "result": ["dejesus"]},
 ]
 
 

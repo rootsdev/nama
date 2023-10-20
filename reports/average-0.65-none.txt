@@ -1,0 +1,280 @@
+Experiment: average-0.65-none
+sub-buckets=19665
+aa
+ - aa: aa
+ado
+ - ado: addo ado
+alastair
+ - alastair: alastair alasdair
+alyandro
+ - aleandro: aljandro alyandro aleandro
+ - alyandra: alyandra
+ansgarius
+ - anasaria: anasario anasaria
+ - ansgarius: ansgarius
+armour
+ - armour: armour armer armar armor
+ - ormur: ormur
+athanasios
+ - athanase: athanatius athanatious athanasios athanagildo athanassio athanase athanasio athanasius athanassios athanas
+ - fanya: fanya
+ - afanasij: afanasij
+azubah
+ - azubah: azuba asaba azubiah asubah azabah azubah asuba azaba azby auzubah azubia
+ - zuba: suba zuby subia suby zuba
+bathilde
+ - bathilda: batilda bethilda bathilda betilda
+ - bathilde: batilde bathilde
+ - bothild: bothild bothildur
+beriah
+ - beriah: barah buriah bariah beriah
+ - byra: byre byra
+ - bera: bera bura
+blaylock
+ - blalock: blalock blaylock
+boynton
+ - boynton: pointon boynton poynton ponton
+ - boyington: boyington
+bunell
+ - bonilla: bonel bonilla
+ - bonnell: bonnel bunnell bunell bunnel bonnell
+canales
+ - canales: canales
+celerino
+ - selerino: selerino
+ - celerino: celerino
+chick
+ - chick: chick choque
+cline
+ - cleon: clayon clenn clyn clean clen cleon clynn
+ - calina: caline calline calonia calina calene calena caoline
+ - cleone: clain clyne cleone clan clayne clane claine
+ - cline: clinie cline clin
+ - klein: klin klein kline klen kleijn
+ - cloan: cloene cloan
+coot
+ - coot: coote coots coot
+cruikshank
+ - cruickshank: crookshank cruikshank cruickshank
+dart
+ - dardo: darth dart dardo
+ - douard: douard
+ - duarte: duward duarte duard
+depew
+ - depew: dupee depew depuy
+ditlev
+ - detlef: dethlef ditloff delf dithlef detlev detler detlof ditlef detlif dettleff detlef dethleff detleff detloph dettloff dethlof dethloff dietloff dettlof dettlef ditlof ditleff
+ - ditlev: ditlow ditlov ditlevine ditlew ditlev
+drury
+ - drury: drura druey drury druery druary drewy druie drewry drewery dreury drewrey
+eddley
+ - eddley: eddley eddly
+eleuterio
+ - eleuteria: eleuto eleutherio eleutheria eleuta eluteria euleuteria eleutera elauteria eleuthere eleuteria eleuthera
+ - eleuterio: eluterio euleuterio eleucterio euluterio eleutario elueterio elauterio eleuterio eleutero eleutaria eleoterio elusterio eleutorio electerio
+emich
+ - emich: emich emig
+ - amick: emmick amick
+errett
+ - errett: erett errett eretta erretta erret
+ - arat: arat
+ - erato: erato
+eurebio
+ - eurebio: eurebio
+fajardo
+ - fajardo: fajardo
+festus
+ - festus: festes vestus festy festus
+foon
+ - fiona: fiona foon fuen
+gad
+ - gad: gade gad gadd gaudy gaud gada gaudin gadi gaddy gawdy gat
+genisa
+ - genisa: genisa
+giok
+ - giok: giok
+gormlaith
+ - gormley: gormley gormly gormlaith
+guglielmo
+ - guglielmo: guglielino guglielmo
+ - guglielmi: guglielmi
+haley
+ - haley: haly haley hally
+ - haralda: heralda haralda
+haviland
+ - haviland: haveland havilland haviland
+hesper
+ - hesper: hesper hesperia
+holje
+ - holje: holge holje halje
+ - hlje: hlje
+hunter
+ - hunter: hunts hunter hunt
+impje
+ - impje: impje impie
+ivadell
+ - ivadell: ivadell ivadelle
+jenkins
+ - jenkin: jenckin jeken jenkinson jenkini jenkinge jinkins jenken jenkins jankin jinken junkin jenkine jenkyn jinkin jenking jenkin jenkens
+ - jonk: jonk
+joris
+ - joris: jorise jores joris jorus jors jorisze
+ - jooris: jooris
+kay
+ - ke: keay kej ke kei ky
+ - cai: cai cau caius cae caio caw cay
+ - kay: kaia kaja kaw kae kaie kay kaye kaio kai
+ - kaylynn: kaylynn kaylyn
+ - ceu: ceu
+ - cajus: gajus cajus
+ - chay: chay
+ - schaje: schaje
+kisire
+ - kisire: kissire kisire kizirah
+lamont
+ - lament: lament lamount lamant
+ - laymond: laymond lomond limond
+ - lamont: lamont lemont lamon lemond lamond lamonde lamonte lemonte
+ - layman: layman leyman
+lefa
+ - leva: leva levke
+ - foy: foyer foy foye
+ - leafy: leafe leffie lefa leaffe leaf leafie leefe lefey lefoy lefy leafee leafa leafy lefee leaffy
+lillian
+ - lily: lillye lilyan lilly lily lillyan
+ - lillian: lillien lillin lilio lelia lilion lili lilianna lillianne lylian lilianne liliam lilliam lillian lillean lilllian liley lilia lillie liliane lilliane liliana lellian lillia lillan lilie lilo lillah lillain lelian lilean lilian lilliana lillion lill lille lilien lilla lilley lillen lilliann lyllian lilli
+ - laila: lalie laila lallie lalia lally laly
+ - leila: lelie leline leilla lelina lel leila leile leilia leala lealia leiel leil lellen lelly lely leal lellie leilah
+ - lyyli: lylie lyyli lyly
+ - lila: lilan lila
+lorelda
+ - lorilda: lorilda larelda laurelda lorelda larilda
+ - lurilda: lurilda
+luttrell
+ - luttrell: latrell littrell luttrell
+mamerto
+ - mamerto: mamet mamert mamerta mamerto
+matisa
+ - matiaz: matisa matisha mateasa matiaz
+melcena
+ - melcina: malzena melzina malcina melsina melzena melcina melcinia
+ - melcena: melissente melcenia melson melsena melsen malcena melcena
+milam
+ - milam: milam milham milum miliam milliam
+ - mallam: mallam
+morman
+ - merriman: merryman merman merriman
+ - morman: mormon marmon morman
+ - moorman: moorman
+nason
+ - nason: nassan naasson naason nason
+ - nison: nissan nison nisan
+nicomedes
+ - nicodemus: nickodemus nicodemas nicod nicodemus nichodemus nicodemo
+ - nicomedes: nicomeda nicomedis nicomedia nicomedez nicomedo nicomedes nicomede
+ - nicudemus: nicudemus nicudemos
+ - necomedes: necomedes
+obera
+ - ober: ober obery oberia obera
+ona
+ - ona: onnie onah onas onny oona ona onia onna oni onea oena ony oana
+ - una: unah une uny unni unna una uni und uney unj unnie unie unia
+ - yona: yona
+ - onnolee: onnolee
+ottiwell
+ - ottiwell: ottwell ottiwell otewell otwell otiwell ottowell ottewell
+ - ottual: ottual
+parthena
+ - purthenia: pearthenia purthenia
+ - parthenia: partina perthema parthemia parthena partha parthene perthana parthine partheny perthina perthenia parthina parthema parthenea porthena partenia partheney parthonia perthena porthenia parthenia parthia parthana paratine parthinia part pertina parthania
+perina
+ - piron: pyrena pirene pirena piron pyrene pyrenia
+ - peronne: perinne perrinne pierrone peronne pierronne
+ - perina: pering parena perrina perena perina perona parina
+ - pherina: pherina
+plantaganet
+ - plant: plantaganet plant plantagenet
+pritchard
+ - prichard: prichard pritchett prichd prichett pritchard pritchet
+ramosa
+ - ramosa: ramosa ramoz ramusa
+renato
+ - renato: renatus renato renati renaat
+ - reynato: reynato
+ - reneer: reneer
+ - renardus: renardus
+roark
+ - roark: rorick rorik roark
+ruliff
+ - ruloff: rulif ruloff ruluf ruliff ruleff ruluff
+saraiva
+ - saraiva: saraiva
+seiko
+ - sieka: cieke sieka
+ - eiko: eiko seiko
+sherman
+ - surman: surman sermon
+ - sherman: sharmon sherman shearman sharma shermon sherm sherma shurman sharman
+sinforosa
+ - sinforiano: simforiana sinforeano simforiano sinforiano sinforiana
+ - sinforosa: sinphorosa simforoso sinforoso symphorose simforosa simphorosa sinforoza sinforosa cinforosa sinforasa sinforozo
+ - sinfrosa: sinfrosa simfrosa sinfroso simfroso
+ - symphorienne: symphorienne
+ - simporosa: simporosa
+ - sinforeana: sinforeana
+sonora
+ - sonora: sonorah sonora
+ - snorri: snorra snorri snorre
+stephen
+ - etienne: etienne eitenne etten etiene eteinne ethienne ettienne hetten etien ettiene
+ - estephano: estepana estephano
+ - sephen: sephan sephen
+ - stebbing: etting stebbing
+ - esteban: ezteban estebn estoban estebe esteven esteben estevam estevao estev estaban estevn esteba estvan estebam estban estevan estevo esteves esteve estevenon esteban estebon estteban esteuan estiban
+ - tahvo: tahvo
+ - estheban: estheban hesteban
+ - staffan: staffan stepfan staffen staf staeffen staffans stafano stafan stjepan staeffan stiepan stipan
+ - staphan: stphanie staphan staphanus steaphan
+ - stefan: steffanus estefano steffen steffens stefaan stefane steff stefanie steffano stefana steffie stefanis stefo stef stefon steffin stefan steffan stepanus stefen steffe stefanja steffani steffine stefa steffann stefanus stefani stefano stefanos
+ - tapani: tapani
+ - heton: heton
+ - sophonius: sophonius
+ - istuan: istuan
+ - steponas: steponas
+ - szczepan: szczepan
+ - stephanie: stephenie stephie stephanie
+ - istvan: eztevan esttevan istvan estavan esthevan estivan
+ - stephanus: stephanus stephani stephania stephanas stephanos stephanius stephanns stephannes stephann stephanes stephanum stephan stephane stephans stephano stephany stephana stephanis stephannus
+ - steven: stevens steven steventon
+ - stephen: steevens stephenas step steaven stephensen steve steaphen stephyn stevan stovin steauen stpehen stephi stepehn stephe stephenus stephin steban stephon steeuen staphen steephen stephnus stiven stepheni steave stepney stephen stevi steyn stiphen stepha stepen stepan steva stepehen stephine stevenson steeve stephn steuben stev stephne stephina stephena stephens stevyn steph stepheny stepn stepp steuen stevo stphen stean stephson stephney stevon stehen stp steohen stuben stevie sthephen stee stephenson stevanus stephus stewen stehpen steiven stuen stevin steeven
+sweetland
+ - scotland: scotland swetland sweetland
+teadore
+ - teadore: teadore
+thorine
+ - thrine: thorun thorny thorunnar thorunar thorine thrine thorn thorunn thrina thorne torine thodorine thoren
+ - tormo: thormo tormoe tormo
+ - therina: therina threna therena
+toebke
+ - tobke: tobke toebe toebke
+truelove
+ - truelove: truelove trulove
+unity
+ - unity: unita eunity unettie unetta unett uneta unity unite
+vd
+ - vda: vda vd
+vinther
+ - vinther: vinther
+warfield
+ - warfield: warfield
+wibbe
+ - wiebe: wibe wijbo wiebe wiebo wibo wibbe wijbbe wijbe wibbo
+ - wippert: wipert wippert
+ - weiprecht: weiprecht
+ - wijpko: wijpko
+wmb
+ - wmp: wmp wmb
+yadwiga
+ - yadwiga: yadwiga
+zapopan
+ - zapopan: zapopa zapopan

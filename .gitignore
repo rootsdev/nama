@@ -5,6 +5,12 @@ __pycache__/
 # C extensions
 *.so
 
+# Certain references
+references/common_given_non_negatives.csv
+references/given_variants.csv
+references/std_given.txt
+references/std_surname.txt
+
 # Distribution / packaging
 .Python
 env/
