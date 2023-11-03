@@ -11,6 +11,13 @@ from src.data.filesystem import fopen
 from src.models.utils import add_padding
 
 
+def read_csv(path: str) -> pd.DataFrame:
+    """
+    Read a CSV into a dataframe
+    """
+    return pd.read_csv(path, na_filter=False)
+
+
 def load_dataset(path: List[str], is_eval=False, verbose=False) -> Tuple[List[str], List[List[Tuple[str, float, int]]], np.array]:
     """
     load name1, name2, weight, co-occurrence rows from a CSV and return
@@ -60,6 +67,45 @@ def load_dataset(path: List[str], is_eval=False, verbose=False) -> Tuple[List[st
     # if you want just relevant names:
     # [[name for name,weight in name_weights] for name_weights in weighted_actual_names]
     return input_names, weighted_actual_names, candidate_names
+
+
+def load_dataset_v2(path: List[str], verbose=False) -> Tuple[List[str], List[List[Tuple[str, int]]], List[str]]:
+    """
+    load tree_name, record_name, frequency rows from a CSV and return
+    a list of tree names (distinct tree_name),
+    a list of lists of attached record names (record_name and frequency) for each input name
+    a list of record names (distinct record_name)
+    because we don't want to have a name matching itself increase the weighted recall
+    """
+    # read dataframe
+    if verbose:
+        print("Reading dataset from {}".format(path))
+    df = read_csv(path)
+    # if we're using this dataset for evaluation, remove self-matches
+    # so matching the same name doesn't increase recall
+
+    if verbose:
+        print("Calculating weighted actual names")
+    record_names = df["record_name"].unique().tolist()
+    df_name_matches = df.groupby("tree_name").agg(list).reset_index()
+    df = None
+    tree_names = df_name_matches["tree_name"].tolist()
+    attached_names = [
+        [(record_name, frequency) for record_name, frequency in zip(record_names, frequencies)]
+        for record_names, frequencies in zip(df_name_matches["record_name"], df_name_matches["frequency"])
+    ]
+    df_name_matches = None
+
+    # add (name1, 0) to each weighted_actual_names list if it doesn't already exist
+    # so if a name matches itself, it doesn't hurt precision
+    if verbose:
+        print("Adding padding to weighted actual names")
+    for ix in range(0, len(tree_names)):
+        name1 = tree_names[ix]
+        if not any(name == name1 for name, _ in attached_names[ix]):
+            attached_names[ix].append((name1, 0))
+
+    return tree_names, attached_names, record_names
 
 
 def filter_dataset(input_names: List[str],

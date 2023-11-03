@@ -1,7 +1,5 @@
 import json
-import os
 
-import boto3
 from phonemizer.separator import Separator
 from phonemizer.backend import EspeakBackend
 from transformers import PreTrainedTokenizerFast
@@ -21,7 +19,6 @@ def get_tokenize_function_and_vocab(
         phoneme_vocab_path=None,
         phoneme_bigrams_vocab_path=None,
         nama_bucket=None,
-        local_dir="../",
 ):
     """"Set up tokenizer and return tokenize function and vocab"""
     def tokenize_phonemes(name):
@@ -46,15 +43,12 @@ def get_tokenize_function_and_vocab(
             path = edit_subwords_bigrams_vocab_path if use_edit_subwords else subwords_bigrams_vocab_path
             with fopen(path, 'r') as f:
                 subword_vocab = json.load(f)
-            subword_tokenizer = PreTrainedTokenizerFast(tokenizer_file=os.path.join(local_dir, path))
+            subword_tokenizer = PreTrainedTokenizerFast(tokenizer_file=path)
             tokenizer = tokenize_subwords
             tokenizer_vocab = subword_vocab
         else:
-            s3 = boto3.client('s3')
             path = edit_subwords_path if use_edit_subwords else subwords_path
-            with open(os.path.join(local_dir, path), 'wb') as f:
-                s3.download_fileobj(nama_bucket, path, f)
-            subword_tokenizer = PreTrainedTokenizerFast(tokenizer_file=os.path.join(local_dir, path))
+            subword_tokenizer = PreTrainedTokenizerFast(tokenizer_file=path)
             tokenizer = tokenize_subwords
             tokenizer_vocab = subword_tokenizer.get_vocab()
 
