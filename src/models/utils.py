@@ -11,6 +11,37 @@ from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
 from src.data import constants
 
 
+def top_similar_names(ref_vector, vectors_norm, names, threshold, top_n=20) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Return the top similar names and scores
+    based on the cosine similarity between the ref vector and the list of vectors
+    """
+    # Normalize the reference vector and the list of vectors
+    ref_vector_norm = ref_vector / np.linalg.norm(ref_vector)
+
+    # Compute cosine similarity
+    similarities = np.dot(vectors_norm, ref_vector_norm)
+
+    # Filter based on the threshold
+    above_threshold_indices = np.where(similarities > threshold)[0]
+
+    if above_threshold_indices.size == 0:
+        return np.array([]), np.array([])  # Return empty array if no vectors meet the threshold
+
+    if above_threshold_indices.size > top_n:
+        # Find indices of top_n similar vectors using argpartition
+        partitioned_indices = np.argpartition(-similarities[above_threshold_indices], top_n - 1)[:top_n]
+        top_indices = above_threshold_indices[partitioned_indices]
+    else:
+        top_indices = above_threshold_indices
+
+    # Further sort the top_indices to order them by similarity
+    top_indices_sorted = top_indices[np.argsort(-similarities[top_indices])]
+
+    # Return the top similar vectors
+    return names[top_indices_sorted], similarities[top_indices_sorted]
+
+
 def _get_candidate_scores(shared, rows, _):
     source_names, source_names_X, num_candidates, metric, normalized = shared
 
