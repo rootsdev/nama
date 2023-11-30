@@ -20,6 +20,155 @@ Using deep learning to find similar personal names
 
 Run notebooks in the order listed
 
+* 10_clean - clean the raw name pairs from FamilySearch (pairs of tree <-> record name) and separate into given and surnames
+  * input: tree-hr-raw
+  * output: tree-hr-names
+* 11_clean_preferred - generate given and surname preferred names from FamilySearch
+  * input: pref-names-raw
+  * output: pref-names-interim
+* 20_generate_pairs - generate pairs from best-matching name pieces
+  * input: tree-hr-names
+  * output: tree-hr-pairs
+* 30_aggregate - aggregate pairs of matching tree <-> record name pieces and compute counts, probabilities, and similarities
+  * input: tree-hr-pairs
+  * output: tree-hr-parquet-v2
+* 31_aggregate_preferred - aggregate preferred names
+  * input: pref-names-interim
+  * output: pref-names
+* 40_filter - convert the tree-hr-attach parquet files into similar and dissimilar name pairs
+  * input: tree-hr-parquet-v2
+  * output: similar-v2, dissimilar-v2
+* 100_train_test_split - split similar names into train and test sets, removing bad pairs
+  * input: similar-v2, pref-names, bad-pairs
+  * output: train-v2, test-v2
+* 200_generate_triplets - generate triplets from training data
+  * input: train-v2
+  * output: triplets
+* 204_generate_subwork_tokenizer - train a subword tokenizer
+  * input: triplets, pref-names, train-v2
+  * output: subword-tokenizer
+* 205_augment_common_non_negatives - augment common non-negatives with additional names
+  * input: common-non-negatives, triplets, name-variants, given-nicknames
+  * output: common-non-negatives-augmented
+* 206_analyze_triplets - review triplets (optional)
+  * input: triplets, pref-names, common-non-negatives-augmented,
+* 207_augment_triplets - augment triplets with additional triplets
+  * input: triplets, pref-names, common-non-negatives-augmented, subword-tokenizer
+  * output: triplets-augmented
+* 220_create_language_model_dataset - create a dataset to train roberta
+  * input: pref-names, tree-hr-parquet
+  * output: all-tree-pref-names, all-tree-hr-names
+* 221_train_language_model - train a language model
+  * input: all-tree-hr-names-sample, pref-names
+  * output: roberta
+* 222_train_cross_encoder - train a cross-encoder model
+  * input: roberta, triplets-augmented, pref-names
+  * output: cross-encoder
+* 223_generate_triplets_from_cross_encoder - generate triplets for training the bi-encoder from the cross-encoder
+  * input: pref-names, train-v2, common-non-negatives-augmented, std-buckets, cross-encoder
+  * output: cross-encoder-triplets-0 and cross-encoder-triplets-common (run twice)
+* 224_train_bi_encoder - train a bi-encoder model
+  * input: cross-encoder-triplets-common-0-augmented, subword-tokenizer
+  * output: bi-encoder
+* 230_eval_bi_encoder - evaluate a bi-encoder model, used to pick hyperparameters
+  * input: subword-tokenizer, bi-encoder, pref-names, triplets, common-non-negatives-augmented 
+* 240_create_clusters_from_buckets - split buckets into clusters using the cross encoder; clusters in the same bucket form a super-cluster
+  * input: std-buckets, subword-tokenizer, cross-encoder, bi-encoder, pref-names
+  * output: clusters, super-clusters
+* 241_augment_clusters - augment clusters with additional names that were not in any cluster
+  * input: clusters, subword-tokenizer, pref-names, cross-encoder, bi-encoder
+  * output: augmented-clusters
+* 242_nearby_clusters - compute nearby clusters for each cluster using the bi-encoder followed by the cross-encoder
+  * input: augmented-clusters, subword-tokenizer, bi-encoder, cross-encoder
+  * output: nearby-clusters
+* 245_eval_coder - compare the precision and recall of nama to familysearch and other coders
+  * input: augmented-clusters, super-clusters, nearby-clusters, subword-tokenizer, bi-encoder, train-v2, test-v2, query-names, pref-names, given-nicknames
+
+### Files
+
+* all-tree-hr-names-sample - 10m sample of all-tree-hr names
+  * f"../data/processed/all-tree-hr-{given_surname}-sample-10m.txt"
+* all-tree-hr-names - all tree preferred names
+  * f"../data/processed/all-tree-hr-{given_surname}.txt"
+* all-tree-pref-names - all tree preferred names
+  * f"../data/processed/all-tree-preferred-{given_surname}.txt"
+* augmented-clusters - similar names from the same bucket that have been augmented with additional frequent names that were not in any bucket
+  * f"../data/processed/clusters_{given_surname}-{scorer}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}-augmented.json"
+* bad-pairs - pairs of names that are not similar (Clorinda reviewed)
+  * f"s3://familysearch-names/interim/{given_surname}_variants_clorinda_reviewed.tsv"
+  * I don't recall exactly how the borderline pairs that went to review were generated, but most likely we simply identified similar-v2 training pairs that had low levenshtein similarity. We don't have a notebook for this.
+* bi-encoder - model to convert a tokenized name to a vector
+  * f"../data/models/bi_encoder-{given_surname}-{model_type}.pth" 
+* clusters - similar names from the same bucket
+  * f"../data/processed/clusters_{given_surname}-{scorer}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}.json"
+* !!! common-non-negatives - pairs of names that may be similar (are not negative)
+  * f"../references/common_{given_surname}_non_negatives.csv"
+* common-non-negatives-augmented - pairs of names that may be similar (are not negative), augmented
+  * f"../data/processed/common_{given_surname}_non_negatives-augmented.csv" 
+* cross-encoder - model to evaluate the similarity of two names
+  * f"../data/models/cross-encoder-{given_surname}-10m-265-same-all"
+* cross-encoder-triplets-0 - triplets generated from cross-encoder with num_easy_negs=0
+  * f"../data/processed/cross-encoder-triplets-{given_surname}-0.csv"
+* cross-encoder-triplets-common - triplets generated from cross-encoder with num_easy_negs='common'
+  * f"../data/processed/cross-encoder-triplets-{given_surname}-common.csv"
+* cross-encoder-triplets-common-0-augmented = cross-encoder-triplets-common + cross-encoder-triplets-0 + test-triplets-augmented 
+  * f"../data/processed/cross-encoder-triplets-{given_surname}-common-0-augmented.csv"
+* dissimilar-v2 - pairs of names from tree-record attachments that are probably not similar
+  * f"s3://familysearch-names/processed/tree-hr-{given_surname}-dissimilar-v2.csv.gz" 
+* given-nicknames - nicknames for given names (hand curated from a variety of sources)
+  * f"../references/givenname_nicknames.csv"
+* !!! name-variants - ???
+  * f"../references/{given_surname}_variants.csv"
+* nearby-clusters - for each cluster, list the nearby clusters
+  * f"../data/processed/nearby_clusters_{given_surname}-{scorer}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}.json"
+* pref-names - preferred names from the tree
+  * f"../data/processed/tree-preferred-{given_surname}-aggr.csv.gz"
+* pref-names-interim 
+  * f"s3://familysearch-names/interim/tree-preferred-{given_surname}/"
+* pref-names-raw
+  * f"s3://familysearch-names/raw/tree-preferred/"
+* query-names - sample of queried names to be evaluated
+  * f"../data/processed/query-names-{given_surname}-v2.csv.gz"
+* roberta - roberta-based language model for names
+  * f"../data/models/roberta-{given_surname}-10m-{vocab_size}"
+* similar-v2 - train-v2 + test-v2 before bad pairs have been removed (same as tree-hr-{given_surname}-similar.csv.gz)
+  * f"s3://familysearch-names/processed/tree-hr-{given_surname}-similar-v2.csv.gz"
+* std-buckets - original name buckets
+  * f"../references/std_{given_surname}.txt"
+* subword-tokenizer - tokenize names into subwords
+  * f"../data/models/fs-{given_surname}-subword-tokenizer-2000f.json"  
+* super-clusters - sets of clusters that were in the same bucket
+  * f"../data/processed/super_clusters_{given_surname}-{scorer}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}.json"
+* test-v2 - tree-record frequency (test set, which has rarer names)
+  * f"../data/processed/tree-hr-{given_surname}-test-v2.csv.gz"
+* train-v2 - tree-record frequency
+  * f"../data/processed/tree-hr-{given_surname}-train-v2.csv.gz"
+* tree-hr-names - names from tree-record attachments
+  * f"s3://familysearch-names/interim/tree-hr-{given_surname}/"
+* tree-hr-pairs - pairs of names from tree-record attachments
+  * f"s3://familysearch-names/interim/tree-hr-{given_surname}-pairs/"
+* tree-hr-parquet - local copy of tree-hr-names
+  * f"../data/tree-hr-{given_surname}/*.parquet"
+* tree-hr-parquet-v2 - aggregated pairs of tree-hr with similarity scores
+  * f"s3://familysearch-names/interim/tree-hr-{given_surname}-aggr-v2.parquet"
+* tree-hr-raw - raw tree-record attachments
+  * f"s3://familysearch-names/raw/tree-hr/"
+* triplets - triplets generated from train-v2
+  * f"../data/processed/tree-hr-{given_surname}-triplets-v2-1000.csv.gz" 
+* triplets-augmented - triplets generated from train-v2, augmented
+  * f"../data/processed/tree-hr-{given_surname}-triplets-v2-1000-augmented.csv.gz" 
+
+
+## Archive
+
+**The information in this system describes a previous version of nama.**
+
+The previous version has been superceded by the current version described above, but the information below may still be useful.
+
+### Notebooks
+
+Run notebooks in the order listed
+
 * 00_snorkel - Experiment with snorkel (ignore, we tried using snorkel but it didn't work well)
 * 00_snorkel_names - Use snorkel to generate training data (ignore this as well)
 * 10_clean - Clean the raw name pairs from FamilySearch (pairs of tree <-> record name) and separate into given and surnames

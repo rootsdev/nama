@@ -8,6 +8,8 @@ from tqdm import tqdm
 import unidecode
 from sklearn.utils.extmath import safe_sparse_dot
 from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
+from statistics import harmonic_mean
+
 from src.data import constants
 
 
@@ -40,6 +42,13 @@ def top_similar_names(ref_vector, vectors_norm, names, threshold, top_n=20) -> t
 
     # Return the top similar vectors
     return names[top_indices_sorted], similarities[top_indices_sorted]
+
+
+def get_cross_encoder_score(name, other_name, ce_model):
+    if name == other_name:
+        return 1.0
+    score1, score2 = ce_model.predict([[name, other_name], [other_name, name]])
+    return harmonic_mean([score1, score2])
 
 
 def _get_candidate_scores(shared, rows, _):
