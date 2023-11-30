@@ -44,7 +44,7 @@ Run notebooks in the order listed
 * 200_generate_triplets - generate triplets from training data
   * input: train-v2
   * output: triplets
-* 204_generate_subwork_tokenizer - train a subword tokenizer
+* 204_generate_subword_tokenizer - train a subword tokenizer
   * input: triplets, pref-names, train-v2
   * output: subword-tokenizer
 * 205_augment_common_non_negatives - augment common non-negatives with additional names
