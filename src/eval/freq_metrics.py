@@ -29,7 +29,7 @@ def calc_avg_precision_recall(query_names: List[str], name2codes: Dict[str, Set[
 
     sum_precision = 0.0
     sum_recall = 0.0
-    for name in tqdm(query_names):
+    for name in tqdm(query_names, mininterval=2.0):
         cluster_names = set().union(*[code2names[code] for code in name2codes[name]])
         precision, recall = calc_precision_recall(name, cluster_names, df)
         sum_precision += precision

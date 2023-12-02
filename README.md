@@ -41,19 +41,20 @@ Run notebooks in the order listed
 * 100_train_test_split - split similar names into train and test sets, removing bad pairs
   * input: similar-v2, pref-names, bad-pairs
   * output: train-v2, test-v2
+* 
 * 200_generate_triplets - generate triplets from training data
   * input: train-v2
   * output: triplets
 * 204_generate_subword_tokenizer - train a subword tokenizer
   * input: triplets, pref-names, train-v2
   * output: subword-tokenizer
-* 205_augment_common_non_negatives - augment common non-negatives with additional names
-  * input: common-non-negatives, triplets, name-variants, given-nicknames
-  * output: common-non-negatives-augmented
+* 205_generate_common_non_negatives - generate pairs of names that are not negative examples
+  * input: std-buckets, pref-names, triplets, given-nicknames
+  * output: common-non-negatives
 * 206_analyze_triplets - review triplets (optional)
-  * input: triplets, pref-names, common-non-negatives-augmented,
+  * input: triplets, pref-names, common-non-negatives,
 * 207_augment_triplets - augment triplets with additional triplets
-  * input: triplets, pref-names, common-non-negatives-augmented, subword-tokenizer
+  * input: triplets, pref-names, common-non-negatives, subword-tokenizer
   * output: triplets-augmented
 * 220_create_language_model_dataset - create a dataset to train roberta
   * input: pref-names, tree-hr-parquet
@@ -62,16 +63,16 @@ Run notebooks in the order listed
   * input: all-tree-hr-names-sample, pref-names
   * output: roberta
 * 222_train_cross_encoder - train a cross-encoder model
-  * input: roberta, triplets-augmented, pref-names
+  * input: roberta, triplets-augmented
   * output: cross-encoder
 * 223_generate_triplets_from_cross_encoder - generate triplets for training the bi-encoder from the cross-encoder
-  * input: pref-names, train-v2, common-non-negatives-augmented, std-buckets, cross-encoder
+  * input: pref-names, train-v2, common-non-negatives, std-buckets, cross-encoder
   * output: cross-encoder-triplets-0 and cross-encoder-triplets-common (run twice)
 * 224_train_bi_encoder - train a bi-encoder model
   * input: cross-encoder-triplets-common-0-augmented, subword-tokenizer
   * output: bi-encoder
 * 230_eval_bi_encoder - evaluate a bi-encoder model, used to pick hyperparameters
-  * input: subword-tokenizer, bi-encoder, pref-names, triplets, common-non-negatives-augmented 
+  * input: subword-tokenizer, bi-encoder, pref-names, triplets, common-non-negatives
 * 240_create_clusters_from_buckets - split buckets into clusters using the cross encoder; clusters in the same bucket form a super-cluster
   * input: std-buckets, subword-tokenizer, cross-encoder, bi-encoder, pref-names
   * output: clusters, super-clusters
@@ -101,24 +102,20 @@ Run notebooks in the order listed
   * f"../data/models/bi_encoder-{given_surname}-{model_type}.pth" 
 * clusters - similar names from the same bucket
   * f"../data/processed/clusters_{given_surname}-{scorer}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}.json"
-* !!! common-non-negatives - pairs of names that may be similar (are not negative)
-  * f"../references/common_{given_surname}_non_negatives.csv"
-* common-non-negatives-augmented - pairs of names that may be similar (are not negative), augmented
-  * f"../data/processed/common_{given_surname}_non_negatives-augmented.csv" 
+* common-non-negatives - pairs of names that may be similar (are not negative)
+  * f"../data/processed/common_{given_surname}_non_negatives.csv" 
 * cross-encoder - model to evaluate the similarity of two names
   * f"../data/models/cross-encoder-{given_surname}-10m-265-same-all"
 * cross-encoder-triplets-0 - triplets generated from cross-encoder with num_easy_negs=0
   * f"../data/processed/cross-encoder-triplets-{given_surname}-0.csv"
 * cross-encoder-triplets-common - triplets generated from cross-encoder with num_easy_negs='common'
   * f"../data/processed/cross-encoder-triplets-{given_surname}-common.csv"
-* cross-encoder-triplets-common-0-augmented = cross-encoder-triplets-common + cross-encoder-triplets-0 + test-triplets-augmented 
+* cross-encoder-triplets-common-0-augmented = cross-encoder-triplets-common + cross-encoder-triplets-0 + triplets-augmented 
   * f"../data/processed/cross-encoder-triplets-{given_surname}-common-0-augmented.csv"
 * dissimilar-v2 - pairs of names from tree-record attachments that are probably not similar
   * f"s3://familysearch-names/processed/tree-hr-{given_surname}-dissimilar-v2.csv.gz" 
 * given-nicknames - nicknames for given names (hand curated from a variety of sources)
   * f"../references/givenname_nicknames.csv"
-* !!! name-variants - ???
-  * f"../references/{given_surname}_variants.csv"
 * nearby-clusters - for each cluster, list the nearby clusters
   * f"../data/processed/nearby_clusters_{given_surname}-{scorer}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}.json"
 * pref-names - preferred names from the tree

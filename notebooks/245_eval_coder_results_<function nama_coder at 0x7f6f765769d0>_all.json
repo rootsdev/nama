@@ -1,0 +1,11 @@
+{
+  "total_names": 1221313,
+  "total_index_entries": 1221313,
+  "total_codes": 12845,
+  "total_queries": 5000,
+  "total_lookups": 44503,
+  "precision": 0.37643514973133757,
+  "recall": 0.9574778929173346,
+  "f1": 0.5404075415127529,
+  "f2": 0.7316207132627385
+}
