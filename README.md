@@ -79,11 +79,17 @@ Run notebooks in the order listed
 * 241_augment_clusters - augment clusters with additional names that were not in any cluster
   * input: clusters, subword-tokenizer, pref-names, cross-encoder, bi-encoder
   * output: augmented-clusters
-* 242_nearby_clusters - compute nearby clusters for each cluster using the bi-encoder followed by the cross-encoder
+* 242_nearby_clusters - compute nearby clusters for each cluster using the bi-encoder followed by the cross-encoder (deprecated)
   * input: augmented-clusters, subword-tokenizer, bi-encoder, cross-encoder
   * output: nearby-clusters
 * 245_eval_coder - compare the precision and recall of nama to familysearch and other coders
-  * input: augmented-clusters, super-clusters, nearby-clusters, subword-tokenizer, bi-encoder, train-v2, test-v2, query-names, pref-names, given-nicknames
+  * input: augmented-clusters, super-clusters, subword-tokenizer, bi-encoder, train-v2, test-v2, query-names, pref-names, given-nicknames
+* 250_create_phonebook - create the phonebook for surnames
+  * input: augmented-clusters, super-clusters, pref-names
+  * output: phonebook
+* 251_save_bi_encoder_weights - save the bi-encoder weights so we can use them in fs-nama (java)
+  * input: subword-tokenizer, bi-encoder
+  * output: bi-encoder-weights
 
 ### Files
 
@@ -100,6 +106,8 @@ Run notebooks in the order listed
   * I don't recall exactly how the borderline pairs that went to review were generated, but most likely we simply identified similar-v2 training pairs that had low levenshtein similarity. We don't have a notebook for this.
 * bi-encoder - model to convert a tokenized name to a vector
   * f"../data/models/bi_encoder-{given_surname}-{model_type}.pth" 
+* bi-encoder-weights - json file containing bi-encoder token and position weights
+  * f"../data/models/bi_encoder-{given_surname}-{model_type}-weights.json"
 * clusters - similar names from the same bucket
   * f"../data/processed/clusters_{given_surname}-{scorer}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}.json"
 * common-non-negatives - pairs of names that may be similar (are not negative)
@@ -118,6 +126,8 @@ Run notebooks in the order listed
   * f"../references/givenname_nicknames.csv"
 * nearby-clusters - for each cluster, list the nearby clusters
   * f"../data/processed/nearby_clusters_{given_surname}-{scorer}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}.json"
+* phonebook - map surname clusters to partitions
+  * f"s3://familysearch-names/processed/phonebook.csv"
 * pref-names - preferred names from the tree
   * f"../data/processed/tree-preferred-{given_surname}-aggr.csv.gz"
 * pref-names-interim 
