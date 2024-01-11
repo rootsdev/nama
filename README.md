@@ -82,6 +82,9 @@ Run notebooks in the order listed
 * 242_nearby_clusters - compute nearby clusters for each cluster using the bi-encoder followed by the cross-encoder (deprecated)
   * input: augmented-clusters, subword-tokenizer, bi-encoder, cross-encoder
   * output: nearby-clusters
+* 243_compress_clusters - compress cluster and super-cluster files so we can check them into git
+  * input: augmented-clusters, super-clusters
+  * output: compressed versions of augmented-clusters and super-clusters
 * 245_eval_coder - compare the precision and recall of nama to familysearch and other coders
   * input: augmented-clusters, super-clusters, subword-tokenizer, bi-encoder, train-v2, test-v2, query-names, pref-names, given-nicknames
 * 250_create_phonebook - create the phonebook for surnames
