@@ -41,7 +41,6 @@ Run notebooks in the order listed
 * 100_train_test_split - split similar names into train and test sets, removing bad pairs
   * input: similar-v2, pref-names, bad-pairs
   * output: train-v2, test-v2
-* 
 * 200_generate_triplets - generate triplets from training data
   * input: train-v2
   * output: triplets
@@ -88,7 +87,7 @@ Run notebooks in the order listed
 * 245_eval_coder - compare the precision and recall of nama to familysearch and other coders
   * input: augmented-clusters, super-clusters, subword-tokenizer, bi-encoder, train-v2, test-v2, query-names, pref-names, given-nicknames
 * 250_create_phonebook - create the phonebook for surnames
-  * input: augmented-clusters, super-clusters, pref-names
+  * input: augmented-clusters, super-clusters, pref-names or hr-names
   * output: phonebook
 * 251_save_bi_encoder_weights - save the bi-encoder weights so we can use them in fs-nama (java)
   * input: subword-tokenizer, bi-encoder
@@ -127,6 +126,8 @@ Run notebooks in the order listed
   * f"s3://familysearch-names/processed/tree-hr-{given_surname}-dissimilar-v2.csv.gz" 
 * given-nicknames - nicknames for given names (hand curated from a variety of sources)
   * f"../references/givenname_nicknames.csv"
+* hr-names - names from historical records - Richard provides this by zcat'ing all files into a single file
+  * f"../data/processed/hr-{given_surname}-aggr.csv.gz"
 * nearby-clusters - for each cluster, list the nearby clusters
   * f"../data/processed/nearby_clusters_{given_surname}-{scorer}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}.json"
 * phonebook - map surname clusters to partitions
@@ -168,6 +169,13 @@ Run notebooks in the order listed
 * triplets-augmented - triplets generated from train-v2, augmented
   * f"../data/processed/tree-hr-{given_surname}-triplets-v2-1000-augmented.csv.gz" 
 
+## Future work
+
+We could consider using the swivel output as input to train the bi-encoder (notebook 224) instead of
+cross-encoder-triplets-common-0-augmented. The cross-encoder-triplets-common-0-augmented file has an 
+unfortunate "bump" in scores at 0.4. That is, a lot of name pairs in the training data are considered
+0.4 similar due to the way the training data was generated. This may make the bi-encoder less-accurate
+than it could be if it were trained instead with the scores from the swivel model. (Estimate 1 week.)
 
 ## Archive
 
@@ -388,7 +396,7 @@ Run notebooks in the order listed
 
 ### Server
 
-The server is currently a bit out of date.
+The server is currently a out of date.
 
 #### Starting the server and online server documentation 
     uvicorn src.server.server:app --reload
