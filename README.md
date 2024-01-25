@@ -55,16 +55,16 @@ Run notebooks in the order listed
 * 207_augment_triplets - augment triplets with additional triplets
   * input: triplets, pref-names, common-non-negatives, subword-tokenizer
   * output: triplets-augmented
-* 220_create_language_model_dataset - create a dataset to train roberta
-  * input: pref-names, tree-hr-parquet
+* 220_create_language_model_dataset - create large datasets to train roberta masked language model
+  * input: pref-names, tree-hr-parquet(-v2)?
   * output: all-tree-pref-names, all-tree-hr-names
-* 221_train_language_model - train a language model
+* 221_train_language_model - train a roberta masked language model in preparation for training the name-pair cross-encoder
   * input: all-tree-hr-names-sample, pref-names
   * output: roberta
-* 222_train_cross_encoder - train a cross-encoder model
+* 222_train_cross_encoder - train a cross-encoder model (based on sentence bert) that takes a pair of names and outputs a similarity score
   * input: roberta, triplets-augmented
   * output: cross-encoder
-* 223_generate_triplets_from_cross_encoder - generate triplets for training the bi-encoder from the cross-encoder
+* 223_generate_triplets_from_cross_encoder - generate various datasets of triplets for training the bi-encoder from the cross-encoder, cause the bi-encoder needs a lot of data
   * input: pref-names, train-v2, common-non-negatives, std-buckets, cross-encoder
   * output: cross-encoder-triplets-0 and cross-encoder-triplets-common (run twice)
 * 224_train_bi_encoder - train a bi-encoder model
@@ -176,6 +176,8 @@ cross-encoder-triplets-common-0-augmented. The cross-encoder-triplets-common-0-a
 unfortunate "bump" in scores at 0.4. That is, a lot of name pairs in the training data are considered
 0.4 similar due to the way the training data was generated. This may make the bi-encoder less-accurate
 than it could be if it were trained instead with the scores from the swivel model. (Estimate 1 week.)
+
+We could consider using the swivel output to re-train the original classifier. (Estimate 1 month.)
 
 ## Archive
 
