@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM python:3.13.0a6-slim
 EXPOSE 8080
 WORKDIR /code
 COPY ./setup.py /code/setup.py
