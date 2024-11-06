@@ -106,3 +106,6 @@ target/
 
 # virtual environment
 .venv/
+
+# pem
+*.pem
