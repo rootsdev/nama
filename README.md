@@ -68,33 +68,33 @@ jupyter notebook --no-browser --port=8888
 
 Run notebooks in the order listed
 
-- 310_clean - clean the raw name pairs from FamilySearch (pairs of tree <-> record name) and separate into given and surnames
+- 310_clean - clean the raw name pairs from FamilySearch (pairs of tree <-> record name) and separate into given and surnames (2 hours)
   - input: tree-hr-raw
   - output: tree-hr-names
-- 311_clean_preferred - generate given and surname preferred names from FamilySearch
+- 311_clean_preferred - generate given and surname preferred names from FamilySearch (30 minutes)
   - input: pref-names-raw
   - output: pref-names-interim
-- 320_generate_pairs - generate pairs from best-matching name pieces
+- 320_generate_pairs - generate pairs from best-matching name pieces (15 minutes)
   - input: tree-hr-names
   - output: tree-hr-pairs
-- 330_aggregate - aggregate pairs of matching tree <-> record name pieces and compute counts, probabilities, and similarities
+- 330_aggregate - aggregate pairs of matching tree <-> record name pieces and compute counts, probabilities, and similarities (15 minutes)
   - input: tree-hr-pairs
   - output: tree-hr-parquet-v2
-- 331_aggregate_preferred - aggregate preferred names
+- 331_aggregate_preferred - aggregate preferred names (10 minutes)
   - input: pref-names-interim
   - output: pref-names
-- 340_filter - convert the tree-hr-attach parquet files into similar and dissimilar name pairs
+- 340_filter - convert the tree-hr-attach parquet files into similar and dissimilar name pairs (2 minutes)
   - input: tree-hr-parquet-v2
   - output: similar, dissimilar
-- 345_train_test_split - split similar names into train and test sets, removing bad pairs
+- 345_train_test_split - split similar names into train and test sets, removing bad pairs (3 minutes)
   - input: similar, pref-names, bad-pairs
   - output: train, test
-- 350_augment_train - Augment the training dataset with other matching pairs based upon names having the same code or levenshtein similarity
+- 350_augment_train - Augment the training dataset with other matching pairs based upon names having the same code or levenshtein similarity (many hours)
   - input: train
   - output: train_augments, train_augmented
-- 351_swivel_tune - Run hyperparameter tuning on swivel model (optional)
+- 351_swivel_tune - Run hyperparameter tuning on swivel model (optional - as long as you want to spend)
   - input: train_augmented
-- 352_swivel - Train a swivel model (takes a long, long, long time)
+- 352_swivel - Train a swivel model (takes 80 hours for given names, probably 240 hours for surnames)
   - input: train_augmented, train
   - output: swivel_vocab, swivel_model
 - 204, generate triplets, 224

@@ -67,7 +67,7 @@ def tree_record_pair_strategy(name, tree2records, record2trees, name_counts, thr
         for alt_name, alt_occurrence in tree2records[tree_name].items():
             if get_weight(tree_name, alt_occurrence, name_counts) < threshold:
                 continue
-            if alt_name != name:
+            if alt_name != name:  # consider adding even if names are the same
                 c[alt_name] += score
     return c
 
@@ -81,7 +81,7 @@ def record_tree_pair_strategy(name, tree2records, record2trees, name_counts, thr
         for alt_name, alt_occurrence in record2trees[record_name].items():
             if get_weight(record_name, alt_occurrence, name_counts) < threshold:
                 continue
-            if alt_name != name:
+            if alt_name != name:  # consider adding even if names are the same
                 c[alt_name] += score
     return c
 
@@ -95,7 +95,7 @@ def tree_record_record_strategy(name, tree2records, record2trees, name_counts, t
         for alt_name, alt_occurrence in tree2records[record_name].items():
             if get_weight(record_name, alt_occurrence, name_counts) < threshold:
                 continue
-            if alt_name != name:
+            if alt_name != name:  # consider adding even if names are the same
                 c[alt_name] += score
     for tree_name, occurrence in record2trees[name].items():
         if get_weight(name, occurrence, name_counts) < threshold:
@@ -103,7 +103,7 @@ def tree_record_record_strategy(name, tree2records, record2trees, name_counts, t
         for alt_name, alt_occurrence in record2trees[tree_name].items():
             if get_weight(tree_name, alt_occurrence, name_counts) < threshold:
                 continue
-            if alt_name != name:
+            if alt_name != name:  # consider adding even if names are the same
                 c[alt_name] += score
     return c
 
@@ -139,7 +139,7 @@ def get_code_matches(name, coder, codes, multiple_codes=False):
 def code_strategy(name, coder, codes, multiple_codes=False, score=1):
     c = Counter()
     for alt_name in get_code_matches(name, coder, codes, multiple_codes=multiple_codes):
-        if alt_name != name:
+        if alt_name != name:  # consider adding even if names are the same
             c[alt_name] = score
     return c
 
@@ -161,7 +161,7 @@ def get_levenshtein_matches(name, names, threshold=0.65):
 def lev_strategy(name, names, threshold, score=1):
     c = Counter()
     for alt_name, _ in get_levenshtein_matches(name, names, threshold).items():
-        if alt_name != name:
+        if alt_name != name:  # consider adding even if names are the same
             c[alt_name] = score
     return c
 
