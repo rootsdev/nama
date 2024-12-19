@@ -2,7 +2,11 @@
 
 Using deep learning to find similar personal names
 
-[Presentation Slides](https://docs.google.com/presentation/d/1xg0PYlfd14vQjgzsGm6woGYEcWljI_4T3C5S6-XqNvk/edit?usp=sharing)
+[Presentation Slides](https://docs.google.com/presentation/d/1NFvCRk0fymeCPJqbvHv2S77V_qTTLVZm4bKyZpz5k80/edit#slide=id.g21141600e86_0_6)
+
+start with old slides,
+figure out what we want to say and add it here,
+then create new slides
 
 ## Initial Setup
 
@@ -79,31 +83,146 @@ Run notebooks in the order listed
   - output: tree-hr-pairs
 - 330_aggregate - aggregate pairs of matching tree <-> record name pieces and compute counts, probabilities, and similarities (15 minutes)
   - input: tree-hr-pairs
-  - output: tree-hr-parquet-v2
+  - output: frequencies
 - 331_aggregate_preferred - aggregate preferred names (10 minutes)
   - input: pref-names-interim
   - output: pref-names
 - 340_filter - convert the tree-hr-attach parquet files into similar and dissimilar name pairs (2 minutes)
-  - input: tree-hr-parquet-v2
-  - output: similar, dissimilar
+  - input: frequencies
+  - output: similar-names, dissimilar-names
 - 345_train_test_split - split similar names into train and test sets, removing bad pairs (3 minutes)
-  - input: similar, pref-names, bad-pairs
+  - input: similar-names, pref-names, bad-pairs
   - output: train, test
-- 350_augment_train - Augment the training dataset with other matching pairs based upon names having the same code or levenshtein similarity (many hours)
+- 360_augment_train_for_swivel - Augment the training dataset with other matching pairs based upon names having the same code or levenshtein similarity (many hours) (DEPRECATED)
   - input: train
-  - output: train_augments, train_augmented
-- 351_swivel_tune - Run hyperparameter tuning on swivel model (optional - as long as you want to spend)
-  - input: train_augmented
-- 352_swivel - Train a swivel model (takes 80 hours for given names, probably 240 hours for surnames)
-  - input: train_augmented, train
-  - output: swivel_vocab, swivel_model
-- 204, generate triplets, 224
-  - generate triplets from names that are in the same bucket, frequent names, and common non-negatives
-  - review what we did last time to generate triplets
+  - output: train-augments, train-augmented
+- 361_tune_swivel - Run hyperparameter tuning on swivel model (optional - as long as you want to spend) (DEPRECATED)
+  - input: train-augmented
+- 362_train_swivel - Train a swivel model (takes 80 hours for given names, probably 240 hours for surnames) (DEPRECATED)
+  - input: train-augmented (to train), train (to evaluate)
+  - output: swivel-vocab, swivel-model
+- 363_analyze_swivel - Analyze swivel scores and frequencies; determine min_frequency cutoff for generating triplets (takes up to 4 hours) (DEPRECATED)
+  - input: std-buckets, frequencies, swivel-vocab, swivel-model
+- 364_generate_triplets_from_swivel - generate triplets by running swivel over high-frequency names (5 hours) (DEPRECATED)
+  - input: frequencies, swivel-vocab, swivel-model
+  - output: swivel-triplets
+- 370_generate_triplets_for_cross_encoder - generate triplets from training data for the cross encoder (1 hour)
+  - input: train
+  - output: triplets
+- 371_generate_common_non_negatives - generate pairs of names that are not negative examples (<1 hour)
+  - input: std-buckets, pref-names, triplets, given-nicknames
+  - output: common-non-negatives
+- 372_generate_subword_tokenizer - create a subword tokenizer (1 hour)
+  - input: frequencies
+  - output: tokenizer
+- 373_augment_triplets_for_cross_encoder - augment triplets with additional triplets (1 hour)
+  - input: triplets, pref-names, common-non-negatives, tokenizer
+  - output: triplets-augmented
+- 375_train_language_model - train a roberta masked language model in preparation for training the name-pair cross-encoder (2 hours)
+  - input: frequencies
+  - output: roberta
+- 377_train_cross_encoder - train a cross-encoder model (based on sentence bert) that takes a pair of names and outputs a similarity score (32 hours)
+  - input: roberta, triplets-augmented
+  - output: cross-encoder
+- 378_generate_triplets_from_cross_encoder - generate various datasets of triplets for training the bi-encoder from the cross-encoder, cause the bi-encoder needs a lot of data (43 hours)
+  - input: pref-names, train, common-non-negatives, std-buckets, cross-encoder
+  - output: cross-encoder-triplets-train, cross-encoder-triplets-common
+- 380_train_bi_encoder - train a bi-encoder model (1 hour per epoch, so 8 hours for 8 epochs)
+  - input: cross-encoder-triplets-train, cross-encoder-triplets-common, triplets-augmented, tokenizer
+  - output: bi-encoder
+- 381_eval_bi_encoder - evaluate a bi-encoder model (1.5 hours)
+  - input: std-buckets, frequencies, tokenizer, bi-encoder
+- 390_create_clusters_from_buckets - split buckets into clusters using the cross encoder; clusters in the same bucket form a super-cluster (3 hours)
+  - input: std-buckets, tokenizer, cross-encoder, bi-encoder, pref-names
+  - output: clusters, super-clusters
+- 391_augment_clusters - augment clusters with additional names that were not in any cluster (9 hours)
+  - input: basenames, clusters, tokenizer, pref-names, cross-encoder, bi-encoder
+  - output: clusters-augmented
+- 393_compress_clusters - compress cluster and super-cluster files so we can check them into git (1 hour)
+  - input: clusters-augmented, clusters-super
+  - output: clusters-augmented and clusters-super compressed (.gz)
+- 394_eval_coder - compare the precision and recall of nama to familysearch and other coders (3 hours for tiny)
+  - input: clusters-augmented, clusters-super, tokenizer, bi-encoder, train, test, query-names, pref-names, given-nicknames
+- 395_create_phonebook - create the phonebook for surnames (~1 hour)
+  - input: clusters-augmented, clusters-super, pref-names
+  - output: phonebook
+- 396_save_bi_encoder_weights - save the bi-encoder weights so we can use them in fs-nama (java) (1 hour)
+  - input: tokenizer, bi-encoder
+  - output: bi-encoder-weights
 
 ### Files
 
-#### TODO - update f strings to match the actual file names
+- bad-pairs - pairs of names that are not similar (Clorinda reviewed)
+  - f"s3://fs-nama-data/2023/familysearch-names/interim/{given_surname}\_variants_clorinda_reviewed.tsv"
+- basenames - surnames with prefixes identified
+  - "../references/basenames-20100616.txt"
+- bi-encoder - bi-encoder model
+  - f"s3://fs-nama-data/2024/nama-data/data/models/bi_encoder-ce-{given_surname}-{num_epochs}-{embedding_dim}-{num_epochs}-{bi_encoder_vocab_size}-{learning_rate}.pth"
+- bi-encoder-weights - bi-encoder weights for fs-nama java code
+  - f"s3://fs-nama-data/2024/nama-data/data/models/bi_encoder-{given_surname}-{num_epochs}-{embedding_dim}-{num_epochs}-{bi_encoder_vocab_size}-{learning_rate}-weights.json"
+- clusters - buckets divided into clusters based upon cross-encoder name similarity
+  - f"s3://fs-nama-data/2024/nama-data/data/processed/clusters\_{given_surname}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}.json"
+- clusters-augmented - clusters augmented with additional names using the cross-encoder
+  - f"s3://fs-nama-data/2024/nama-data/data/processed/clusters\_{given_surname}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}-augmented.json"
+- clusters-super - clusters in the same bucket form a super-cluster
+  - f"s3://fs-nama-data/2024/nama-data/data/processed/super*clusters*{given_surname}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}.json"
+- common-non-negatives - pairs of common names that may be similar (are not negative)
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/common\_{given_surname}\_non_negatives.csv"
+- cross-encoder - cross-encoder (directory containing multiple files)
+  - f"s3://fs-nama-data/2024/nama-data/data/models/cross-encoder-{given_surname}-{cross_encoder_vocab_size}/"
+- cross-encoder-triplets-common - triplets generated from cross-encoder, focusing on negative examples involving common names
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/cross-encoder-triplets-{given_surname}-common.csv"
+- cross-encoder-triplets-train - triplets generated from cross-encoder
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/cross-encoder-triplets-{given_surname}-train.csv"
+- dissimilar-names - pairs of names from tree-record attachments that are probably not similar
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/tree-hr-{given_surname}-dissimilar.csv.gz"
+- frequencies - name frequences in hr
+  - f"s3://fs-nama-data/2024/familysearch-names/interim/tree-hr-{given_surname}-aggr-v2.parquet"
+- given-nicknames - hand-crafted list of nicknames
+  - "../references/givenname_nicknames.csv"
+- phonebook - phonebook for fs-nama
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/{phonebook_type}-phonebook.json"
+- pref-names - preferred tree names
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/tree-preferred-{given_surname}-aggr.csv.gz"
+- pref-names-interim - preferred tree names before splitting and aggregation
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/tree-preferred-{given_surname}-aggr.csv.gz"
+- pref-names-raw - preferred tree names before separating into given and surname (directory)
+  - f"s3://fs-nama-data/2024/familysearch-names/raw/tree-preferred/"
+- query-names - sample of queried names from 2023
+  - f"s3://fs-nama-data/2023/familysearch-names/processed/query-names-{given_surname}-v2.csv.gz"
+- roberta - roberta model trained on names (directory containing multiple files)
+  - f"s3://fs-nama-data/2024/nama-data/data/models/roberta-{given_surname}-{cross_encoder_vocab_size}/"
+- similar-names - train+test before bad pairs have been removed
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/tree-hr-{given_surname}-similar.csv.gz"
+- std-buckets - the original Steve Blodgett buckets
+  - f"../references/std\_{given_surname}.txt"
+- swivel-triplets - triplets generated by swivel to train the bi-encoder
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/tree-hr-{given_surname}-triplets-{hard_neg_count}-{easy_neg_count}.csv.gz"
+- swivel-model - model generated by swivel
+  - f"s3://fs-nama-data/2024/nama-data/data/models/fs-{given_surname}-swivel-model-{vocab_size}-{embed_dim}-augmented.pth"
+- swivel-vocab - vocabulary used by swivel
+  - f"s3://fs-nama-data/2024/nama-data/data/models/fs-{given_surname}-swivel-vocab-{vocab_size}-augmented.csv"
+- test - test hr data
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/tree-hr-{given_surname}-test.csv.gz"
+- tokenizer - (subword) tokenizer
+  - f"s3://fs-nama-data/2024/nama-data/data/models/fs-{given_surname}-subword-tokenizer-{bi_encoder_vocab_size}.json"
+- train - training hr data
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/tree-hr-{given_surname}-train.csv.gz"
+- train-augments - pairs that were added to the training data
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/tree-hr-{given_surname}-train-augments.csv.gz",
+- train-augmented - training hr data augmented with similar names from coders and levenshtein
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/tree-hr-{given_surname}-train-augmented.csv.gz",
+- tree-hr-names - names from tree-record attachments
+  - f"s3://fs-nama-data/2024/familysearch-names/interim/tree-hr-{given_surname}/"
+- tree-hr-pairs - pairs of names from tree-record attachments (directory with lots of files)
+  - f"s3://fs-nama-data/2024/familysearch-names/interim/tree-hr-{given_surname}-pairs/"
+- tree-hr-raw - tree-record names before they have been split into give and surname (directory)
+  - f"s3://fs-nama-data/2024/familysearch-names/raw/tree-hr/"
+- triplets - triplets used to train cross-encoder
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/tree-hr-{given_surname}-triplets-{tree_name_min_freq}.csv.gz"
+- triplets-augmented - augment triplets used to train cross-encoder with similar names according to coders and levenshtein
+
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/tree-hr-{given_surname}-triplets-{tree_name_min_freq}-augmented.csv.gz"
 
 - all-tree-hr-names-sample - 10m sample of all-tree-hr names
   - f"../data/processed/all-tree-hr-{given_surname}-sample-10m.txt"
@@ -116,6 +235,8 @@ Run notebooks in the order listed
 - bad-pairs - pairs of names that are not similar (Clorinda reviewed)
   - f"s3://familysearch-names/interim/{given_surname}\_variants_clorinda_reviewed.tsv"
   - I don't recall exactly how the borderline pairs that went to review were generated, but most likely we simply identified similar-v2 training pairs that had low levenshtein similarity. We don't have a notebook for this.
+- bi-encoder-triplets - triplets to train the bi-encoder
+  - f"s3://fs-nama-data/2024/familysearch-names/processed/tree-hr-{given_surname}-triplets-{hard_negs}-{easy_negs}.csv.gz"
 - bi-encoder - model to convert a tokenized name to a vector
   - f"../data/models/bi_encoder-{given_surname}-{model_type}.pth"
 - bi-encoder-weights - json file containing bi-encoder token and position weights
@@ -157,7 +278,7 @@ Run notebooks in the order listed
 - std-buckets - original name buckets
   - f"../references/std\_{given_surname}.txt"
 - subword-tokenizer - tokenize names into subwords
-  - f"../data/models/fs-{given_surname}-subword-tokenizer-2000f.json"
+  - f"../data/models/fs-{given_surname}-subword-tokenizer-2048.json"
 - super-clusters - sets of clusters that were in the same bucket
   - f"../data/processed/super*clusters*{given_surname}-{scorer}-{linkage}-{similarity_threshold}-{cluster_freq_normalizer}.json"
 - swivel_vocab - swivel model vocabulary
@@ -185,11 +306,6 @@ Run notebooks in the order listed
 
 * tree-hr-raw - raw tree-record attachments
   - f"s3://fs-nama-data/2024/familysearch-names/raw/tree-hr/"
-
-- triplets - triplets generated from train-v2
-  - f"../data/processed/tree-hr-{given_surname}-triplets-v2-1000.csv.gz"
-- triplets-augmented - triplets generated from train-v2, augmented
-  - f"../data/processed/tree-hr-{given_surname}-triplets-v2-1000-augmented.csv.gz"
 
 ## Future work
 

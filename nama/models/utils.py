@@ -13,16 +13,15 @@ from tqdm import tqdm
 from nama.data import constants
 
 
-def top_similar_names(ref_vector, vectors_norm, names, threshold, top_n=20) -> tuple[np.ndarray, np.ndarray]:
+def top_similar_names(ref_vector, vectors, names, threshold, top_n=20) -> tuple[np.ndarray, np.ndarray]:
     """
     Return the top similar names and scores
-    based on the cosine similarity between the ref vector and the list of vectors
+    based on the dot product between the (normalized) ref vector and the (normalized) list of vectors
     """
-    # Normalize the reference vector and the list of vectors
-    ref_vector_norm = ref_vector / np.linalg.norm(ref_vector)
-
-    # Compute cosine similarity
-    similarities = np.dot(vectors_norm, ref_vector_norm)
+    # Compute dot product
+    ref_vector = ref_vector / np.linalg.norm(ref_vector)
+    vectors = vectors / np.linalg.norm(vectors, axis=1)[:, None]
+    similarities = np.dot(vectors, ref_vector)
 
     # Filter based on the threshold
     above_threshold_indices = np.where(similarities > threshold)[0]

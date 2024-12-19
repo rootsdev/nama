@@ -40,7 +40,7 @@ def glob(path):
         return glb.glob(path)
 
 
-def download_file_from_s3(s3_path):
+def download_file_from_s3(s3_path, target_path=None):
     bucket, key = parse_s3_path(s3_path)
     # get the s3_path extension
     _, ext = os.path.splitext(key)
@@ -49,19 +49,19 @@ def download_file_from_s3(s3_path):
     s3 = boto3.client("s3")
 
     # Create a temporary file
-    temp_file = tempfile.NamedTemporaryFile(delete=False)
-    temp_file_path = f"{temp_file.name}{ext}"
-    temp_file.close()
+    if target_path is None:
+        temp_file = tempfile.NamedTemporaryFile(delete=False)
+        temp_file_path = f"{temp_file.name}{ext}"
+        temp_file.close()
+        target_path = temp_file_path
 
     try:
         # Download the file from S3 to the temporary file
-        s3.download_file(bucket, key, temp_file_path)
+        s3.download_file(bucket, key, target_path)
     except Exception as e:
         print(f"Error downloading file {s3_path} from S3: {e}")
-        os.unlink(temp_file_path)  # Delete the temporary file
-        temp_file_path = None
 
-    return temp_file_path
+    return target_path
 
 
 def upload_file_to_s3(file_path, s3_path):
